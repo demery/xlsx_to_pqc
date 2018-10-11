@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-include XlsxToMarmite
+include XlsxToPqcXml
 
 RSpec.describe StructuralMetadata do
   include_context 'shared context'

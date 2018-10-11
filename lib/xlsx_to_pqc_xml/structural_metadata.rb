@@ -1,7 +1,7 @@
 require 'rubyXL'
 require 'ostruct'
 
-module XlsxToMarmite
+module XlsxToPqcXml
   class StructuralMetadata
     ##
     # x - Confirm all TIFF files in XLSX in directory

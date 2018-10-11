@@ -1,11 +1,11 @@
 
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'xlsx_to_marmite/version'
+require 'xlsx_to_pqc_xml/version'
 
 Gem::Specification.new do |spec|
   spec.name          = 'fixtures'
-  spec.version       = XlsxToMarmite::VERSION
+  spec.version       = XlsxToPqcXml::VERSION
   spec.authors       = ['Doug Emery']
   spec.email         = ['emeryr@upenn.edu']
 
