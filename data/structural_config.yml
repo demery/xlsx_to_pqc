@@ -1,0 +1,33 @@
+---
+:sheet_name: 'Structural'
+:sheet_position: 0
+:heading_type: 'row'
+:headings:
+  - :heading:     ARK ID
+    :requirement: :required
+    :repeating:   true
+    :data_type:   :ark
+  - :heading:     PAGE SEQUENCE
+    :requirement: :required
+    :repeating:   true
+    :data_type:   :integer
+  - :heading:     FILENAME
+    :requirement: :required
+    :repeating:   true
+    :data_type:   :string
+  - :heading:     VISIBLE PAGE
+    :requirement: :required
+    :repeating:   true
+    :data_type:   :string
+  - :heading:     TOC ENTRY
+    :requirement: false
+    :repeating:   true
+    :data_type:   :string
+  - :heading:     ILL ENTRY
+    :requirement: false
+    :repeating:   true
+    :data_type:   :string
+  - :heading:     NOTES
+    :requirement: false
+    :repeating:   true
+    :data_type:   :string

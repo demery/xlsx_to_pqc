@@ -1,28 +1,14 @@
-require 'rubyXL'
+require_relative 'xlsx_data'
 require 'ostruct'
 
 module XlsxToPqcXml
   class StructuralMetadata
+
     ##
     # x - Confirm all TIFF files in XLSX in directory
     # x - Confirm all required headers present
-    # TODO: Validate required values present
-    # TODL: Return PQC XML
+    # TODO: Return PQC XML
 
-    # --- Column headers ---
-    ARK_ID        = 'ARK ID'
-    PAGE_SEQUENCE = 'PAGE SEQUENCE'
-    VISIBLE_PAGE  = 'VISIBLE PAGE'
-    TOC_ENTRY     = 'TOC ENTRY'
-    ILL_ENTRY     = 'ILL ENTRY'
-    FILENAME      = 'FILENAME'
-    NOTES         = 'NOTES'
-    HEADER_NAMES  = [
-      ARK_ID, PAGE_SEQUENCE, VISIBLE_PAGE, TOC_ENTRY, ILL_ENTRY,
-      FILENAME, NOTES
-    ].freeze
-    # Don't require 'NOTES' column
-    REQUIRED_HEADERS                 = HEADER_NAMES.reject {|h| h == NOTES}.freeze
 
     # --- Default values --- (in case we want to make editable later)
     DEFAULT_PQC_STRUCTURAL_XLSX_BASE = 'pqc_structural.xlsx'.freeze
@@ -33,16 +19,17 @@ module XlsxToPqcXml
     VERSO                            = 'verso'.freeze
 
     attr_reader :package_directory
-    attr_reader :expected_headers
+    # attr_reader :expected_headers
     attr_accessor :data_file_glob
 
     ##
     # @param [String] package_directory Path the to content package directory
-    def initialize package_directory
+    def initialize package_directory:, sheet_config:
       @package_directory    = package_directory
-      @expected_headers     = REQUIRED_HEADERS.map &:itself
+      @xlsx_data            = nil
       @structural_xlsx_base = DEFAULT_PQC_STRUCTURAL_XLSX_BASE
       @data_file_glob       = DEFAULT_DATA_FILE_GLOB
+      @sheet_config         = sheet_config
       @spreadsheet_data     = []
       @data_file_list       = []
       @image_data           = []
@@ -82,11 +69,11 @@ module XlsxToPqcXml
       validate_spreadsheet_file_list
 
       spreadsheet_data.map do |row_hash|
-        sequence = Integer row_hash[PAGE_SEQUENCE].to_s.strip
-        filename = row_hash[FILENAME]
+        sequence = Integer row_hash[:page_sequence].to_s.strip
+        filename = row_hash[:filename]
         image    = File.basename filename, File.extname(filename)
-        toc      = (row_hash[TOC_ENTRY] || '').split(%r{\s*\|\s*}).map(&:strip)
-        ill      = (row_hash[ILL_ENTRY] || '').split(%r{\s*\|\s*}).map(&:strip)
+        toc      = (row_hash[:toc_entry] || '').split(%r{\s*\|\s*}).map(&:strip)
+        ill      = (row_hash[:ill_entry] || '').split(%r{\s*\|\s*}).map(&:strip)
         data     = {
           number:             sequence,
           seq:                sequence,
@@ -95,7 +82,7 @@ module XlsxToPqcXml
           side:               (sequence.odd? ? RECTO : VERSO),
           image_id:           image,
           image:              image,
-          visiblepage:        row_hash[VISIBLE_PAGE],
+          visiblepage:        row_hash['VISIBLE PAGE'],
           toc:                toc,
           ill:                ill
         }
@@ -124,33 +111,18 @@ module XlsxToPqcXml
       @image_data
     end
 
-    ##
-    # @return [Array<Hash>] array of the spreadsheet data as hashes
-    # @raise [StandardError] if there are duplicate headers or missing columns
-    def spreadsheet_data
-      return @spreadsheet_data unless @spreadsheet_data.empty?
-
-      @spreadsheet_data = []
-
-      xlsx      = RubyXL::Parser.parse xlsx_path
-      worksheet = xlsx[0]
-      headers   = worksheet.sheet_data.rows.first.cells.map do |cell|
-        cell.value.upcase.strip
-      end
-      validate_headers headers
-
-      worksheet.sheet_data.rows.each do |row|
-        next if row.index_in_collection == 0
-        row_hash = {}
-        row.cells.each_with_index do |cell, position|
-          value                       = (cell.nil? || cell.value.nil?) ? '' : cell.value.to_s
-          row_hash[headers[position]] = value
-        end
-        @spreadsheet_data << row_hash
-      end
-
-      @spreadsheet_data
+    def xlsx_path
+      File.join @package_directory, @structural_xlsx_base
     end
+
+    def spreadsheet_data
+      return @xlsx_data.data unless @xlsx_data.nil?
+
+      @xlsx_data = XlsxData.new xlsx_path: xlsx_path, config: @sheet_config
+
+      @xlsx_data.data
+    end
+
 
     ##
     # @return [Array<String>] list of data file basenames in {package_directory}
@@ -170,28 +142,9 @@ module XlsxToPqcXml
       return @spreadsheet_files unless @spreadsheet_files.empty?
 
       @spreadsheet_files = spreadsheet_data.flat_map do |row_hash|
-        next [] if row_hash[FILENAME].nil?
-        next [] if row_hash[FILENAME].to_s.strip.empty?
-        row_hash[FILENAME].to_s
-      end
-    end
-
-    protected
-
-    ##
-    # Make sure there are no duplicate headers and that all the required
-    # headers are present.
-    # @raise [StandardError] if there are non-unique header names
-    # @raise [StandardError] if one or more required columns is missing
-    def validate_headers headers
-      unless headers.length == headers.uniq.length
-        raise StandardError, "Duplicate column names in #{headers.sort} (#{xlsx_path})"
-      end
-
-      # get a list of expected headers not found in `headers`
-      missing = expected_headers.reject {|h| headers.include? h}
-      unless missing.empty?
-        raise StandardError, "Missing required columns: #{missing.join '; '}"
+        next [] if row_hash[:filename].nil?
+        next [] if row_hash[:filename].to_s.strip.empty?
+        row_hash[:filename].to_s
       end
     end
 
@@ -199,13 +152,13 @@ module XlsxToPqcXml
     # Make sure we have all the files listed in the spreadsheet
     # @raise [StandardError] if the spreadsheet lists files not found on disk
     def validate_spreadsheet_file_list
-      missing = spreadsheet_files.reject {|file| files_on_disk.include? file}
+    missing = spreadsheet_files.reject {|file| files_on_disk.include? file}
 
-      unless missing.empty?
-        list = missing.map {|f| "'#{f}'"}.join ', '
-        raise StandardError, "Spreadsheet files not found in folder: #{list}"
-      end
+    unless missing.empty?
+      list = missing.map {|f| "'#{f}'"}.join ', '
+      raise StandardError, "Spreadsheet files not found in folder: #{list}"
     end
+  end
 
   end
 end

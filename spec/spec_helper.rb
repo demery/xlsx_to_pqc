@@ -1,6 +1,8 @@
 require 'bundler/setup'
 require 'fileutils'
 require 'xlsx_to_pqc_xml'
+require 'yaml'
+require 'pry'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

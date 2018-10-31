@@ -23,9 +23,11 @@ RSpec.describe StructuralMetadata do
 
   let(:good_structural_xlsx)  { File.join fixtures_path, 'good_pqc_structural.xlsx' }
   let(:package_dir)           { File.join staging_dir, ark_dir }
+  let(:structural_config_yml) { File.join fixtures_path, 'structural_config.yml' }
+  let(:sheet_config)          { YAML.load open(structural_config_yml).read }
 
   let(:structural_xlsx)       { File.join package_dir, 'pqc_structural.xlsx' }
-  let(:structural_metadata)   { StructuralMetadata.new package_dir }
+  let(:structural_metadata)   { StructuralMetadata.new package_directory: package_dir, sheet_config: sheet_config }
 
   after :each do
     FileUtils.remove_dir staging_dir if File.exists? staging_dir
@@ -33,7 +35,7 @@ RSpec.describe StructuralMetadata do
 
   context 'new' do
     it 'should create a StructuralMetadata instance' do
-      expect(StructuralMetadata.new 'path').to be_a StructuralMetadata
+      expect(StructuralMetadata.new package_directory: 'path', sheet_config: sheet_config).to be_a StructuralMetadata
     end
   end
 
