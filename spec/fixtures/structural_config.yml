@@ -22,9 +22,13 @@
 - :attr: toc_entry
   :headings:
     - TOC ENTRY
+  :multivalued: true
+  :value_sep: '|'
 - :attr: ill_entry
   :headings:
     - ILL ENTRY
+  :multivalued: true
+  :value_sep: '|'
 - :attr: notes
   :headings:
     - NOTES

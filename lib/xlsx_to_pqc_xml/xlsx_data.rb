@@ -1,4 +1,6 @@
 require 'rubyXL'
+# require_relative 'attr'
+
 module XlsxToPqcXml
   class XlsxData
 
@@ -69,7 +71,7 @@ module XlsxToPqcXml
             # don't process the first column; it has the headings
             next if col_pos == 0
             attr = attribute_sym head
-            value = value_from_cell cell
+            value = value_from_cell cell, head
             next if attr.nil?
             next if value.nil?
             # each column represents a record, insert its value in the @data
@@ -84,7 +86,7 @@ module XlsxToPqcXml
           row_hash = {}
           row.cells.each_with_index do |cell, row_pos|
             attr = attribute_sym headers[row_pos]
-            value = value_from_cell cell
+            value = value_from_cell cell, headers[row_pos]
             next if attr.nil?
             next if value.nil?
             row_hash[attr] = value
@@ -108,10 +110,21 @@ module XlsxToPqcXml
       header_map[head].attr_sym
     end
 
-    def value_from_cell cell
+    ##
+    # @param [RubyXL::Cell]  cell the cell containing the data
+    # @param [String] head heading value for the cell's column/row
+    def value_from_cell cell, head
+      return if head.nil?
       return if cell.nil?
       return if cell.value.nil?
-      cell.value.to_s
+      val = cell.value.to_s.strip
+
+      attr = header_map[head]
+      if attr.is_a?(Attr) && attr.multivalued?
+        val.split(/#{Regexp.escape(attr.value_sep)}/).map(&:strip)
+      else
+        val
+      end
     end
 
     def header_map
@@ -195,30 +208,28 @@ module XlsxToPqcXml
 
     protected
 
-
-    ##
-    # @param [RubyXL::Cell] cell cell to extract the header name from
-    # @return [String] the header value or nil if cell empty
-    def header_from_cell cell
-      return if cell.nil?
-      return if cell.value.nil?
-      return if cell.value.to_s.strip.empty?
-      cell.value.to_s.upcase.strip
-    end
-
     class Attr
-      attr_accessor :attr, :headings, :requirement
+
+      attr_accessor :attr, :headings, :requirement, :multivalued, :value_sep
+
+      DEFAULT_VALUE_SEP = '|'
 
       def initialize deets:
         @attr        = deets[:attr]
         @headings    = deets[:headings]
         @requirement = deets[:requirement]
+        @multivalued = deets[:multivalued]
+        @value_sep   = deets[:value_sep] || DEFAULT_VALUE_SEP
       end
 
       def required?
         return unless @requirement
         return unless @requirement.is_a? String
         requirement.strip.downcase == 'required'
+      end
+
+      def multivalued?
+        @multivalued
       end
 
       def to_s
@@ -228,6 +239,16 @@ module XlsxToPqcXml
       def attr_sym
         attr.to_sym
       end
+    end
+
+    ##
+    # @param [RubyXL::Cell] cell cell to extract the header name from
+    # @return [String] the header value or nil if cell empty
+    def header_from_cell cell
+      return if cell.nil?
+      return if cell.value.nil?
+      return if cell.value.to_s.strip.empty?
+      cell.value.to_s.upcase.strip
     end
   end
 end

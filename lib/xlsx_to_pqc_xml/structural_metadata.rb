@@ -72,8 +72,8 @@ module XlsxToPqcXml
         sequence = Integer row_hash[:page_sequence].to_s.strip
         filename = row_hash[:filename]
         image    = File.basename filename, File.extname(filename)
-        toc      = (row_hash[:toc_entry] || '').split(%r{\s*\|\s*}).map(&:strip)
-        ill      = (row_hash[:ill_entry] || '').split(%r{\s*\|\s*}).map(&:strip)
+        toc      = row_hash[:toc_entry]
+        ill      = row_hash[:ill_entry]
         data     = {
           number:             sequence,
           seq:                sequence,
