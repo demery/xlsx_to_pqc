@@ -43,7 +43,9 @@ RSpec.describe XlsxData do
       'TOC ENTRY',
       'ILL ENTRY',
       'FILENAME',
-      'NOTES'
+      'NOTES',
+      nil,
+      'FILLER'
     ]
   }
 

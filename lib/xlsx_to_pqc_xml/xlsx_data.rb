@@ -5,6 +5,7 @@ module XlsxToPqcXml
     attr_reader :xlsx_path
 
     # TODO: Validate required values present
+    # TODO: Add value splitting
 
     ##
     # Create a new XlsxData for XLSX file `xlsx_path` with `config` hash.
@@ -60,32 +61,33 @@ module XlsxToPqcXml
       validate_headers
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
-        # headers are in the first column; for each header, work across
-        # the row, collecting the value in each column.
+        # headings are in the first column; for each header, work across the
+        # row, collecting the value in each column.
         headers.each_with_index do |head, row_pos|
           next if head.nil?
-
           worksheet.sheet_data.rows[row_pos].cells.each_with_index do |cell,col_pos|
+            # don't process the first column; it has the headings
             next if col_pos == 0
-            value = (cell.nil? || cell.value.nil?) ? '' : cell.value.to_s
+            attr = attribute_sym head
+            value = value_from_cell cell
+            next if attr.nil?
+            next if value.nil?
             # each column represents a record, insert its value in the @data
             # array at the column position
-            next if value.empty?
-            attr_sym = header_map[head] ? header_map[head].attr_sym : head.to_sym
-            (@data[col_pos-1] ||= {})[attr_sym] = value
+            (@data[col_pos-1] ||= {})[attr] = value
           end
         end
       else
         worksheet.sheet_data.rows.each do |row|
+          # don't process the first row; it has the headings
           next if row.index_in_collection == 0
           row_hash = {}
-          row.cells.each_with_index do |cell, position|
-            next if headers[position].nil?
-            value = (cell.nil? || cell.value.nil?) ? '' : cell.value.to_s
-            next if value.empty?
-            head = headers[position]
-            attr_sym = header_map[head] ? header_map[head].attr_sym : head.to_sym
-            row_hash[attr_sym] = value
+          row.cells.each_with_index do |cell, row_pos|
+            attr = attribute_sym headers[row_pos]
+            value = value_from_cell cell
+            next if attr.nil?
+            next if value.nil?
+            row_hash[attr] = value
           end
           @data << row_hash
         end
@@ -94,15 +96,22 @@ module XlsxToPqcXml
       @data
     end
 
-
-    # def config_headers
-    #   (@sheet_config[:headings] || []).map { |h| h[:heading] }
-    # end
-
     def attributes
       return @attributes unless @attributes.nil?
 
       (@sheet_config[:attributes] || []).map { |a| Attr.new deets: a }
+    end
+
+    def attribute_sym head
+      return if head.nil?
+      return head.to_sym unless header_map[head]
+      header_map[head].attr_sym
+    end
+
+    def value_from_cell cell
+      return if cell.nil?
+      return if cell.value.nil?
+      cell.value.to_s
     end
 
     def header_map
@@ -119,12 +128,6 @@ module XlsxToPqcXml
 
       @required_attributes = attributes.select &:required?
     end
-
-    # def required_headers
-    #   (@sheet_config[:headings] || []).select { |h|
-    #     h[:requirement] == :required
-    #   }.map { |h| h[:heading] }
-    # end
 
     ##
     # Return the headers values for the first row or column and their positions.
@@ -152,6 +155,7 @@ module XlsxToPqcXml
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
         @headers = worksheet.sheet_data.rows.map do |row|
+          next nil if row.nil?
           # headers are in the first column; get the first cell value in each
           # row
           header_from_cell row.cells.first
