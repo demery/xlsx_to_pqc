@@ -7,20 +7,73 @@ module XlsxToPqcXml
     attr_reader :xlsx_path
     attr_reader :errors
 
+    # regular expression to match an ark
     ARK_REGEX = %r{\Aark:/\w+/\w+\Z}i
 
-    # TODO: Validate pattern/data types
+    # Class methods
+    class << self
 
-    TYPE_VALIDATORS = {
-      integer: lambda { |value|
-        begin
-          Integer value
-        rescue ArgumentError
-          false
-        end
-      },
-      ark: lambda { |value| value =~ ARK_REGEX }
-    }
+      # Hash of data type validators
+      DEFAULT_TYPE_VALIDATORS = {
+        integer: lambda { |value|
+          begin
+            Integer value
+          rescue ArgumentError
+            false
+          end
+        },
+        ark: lambda { |value| value =~ ARK_REGEX }
+      }.freeze
+
+      @@type_validators = DEFAULT_TYPE_VALIDATORS
+
+      ##
+      # @return [Hash] copy of currently configure validators
+      def type_validators
+        @@type_validators.dup
+      end
+
+      ##
+      # Add a new or replace an existing +validator+ for +data_type+. The
+      # validator must be a lambda that takes one argument, the cell value
+      # and returns a truthy value if value is valid and non-truthy otherwise.
+      #
+      # The validator should not be passed a +nil+ value and so does not need to
+      # handle the case of +nil+.
+      #
+      # @param [Symbol] data_type e.g., +:string+, +:year+
+      # @param [Lambda] validator
+      def set_type_validator data_type, validator
+        @@type_validators[data_type.to_sym] = validator
+      end
+
+      ##
+      # Delete the validator for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Lambda]
+      def delete_type_validator data_type
+        @@type_validators.delete data_type.to_sym
+      end
+
+      ##
+      # Return the validator for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Lambda] the deleted validator
+      def type_validator data_type
+        @@type_validators[data_type.to_sym]
+      end
+
+      ##
+      # Return whether a validator exists for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Boolean]
+      def has_validator? data_type
+        @@type_validators.include? data_type.to_sym
+      end
+    end
 
     ##
     # Create a new XlsxData for XLSX file +xlsx_path+ with +config+ hash.
@@ -67,7 +120,7 @@ module XlsxToPqcXml
     # @param [Hash] config spreadsheet configuration
     def initialize xlsx_path:, config: {}
       @xlsx_path        = xlsx_path
-      @sheet_config     = config
+      @sheet_config     = config.dup # be defensive
       @data             = nil
       @headers          = []
       @errors           = Hash.new { |hash, key| hash[key] = [] }
@@ -80,10 +133,15 @@ module XlsxToPqcXml
     end
 
     ##
+    # Read and validate the spreadsheet at {xlsx_path}.
+    #
+    # @param [Boolean] data_only skip validation
+    # @param [Boolean] validation_only skip data extraction
     # @return [Array<Hash>] array of the spreadsheet data as hashes
-    # @raise [StandardError] if there are duplicate headers or missing columns
-    def data
+    def data data_only: false, validation_only: false
       return @data unless @data.nil?
+
+      # TODO: make sure config is valid first; esp. check data_types
 
       @data = []
 
@@ -106,7 +164,10 @@ module XlsxToPqcXml
 
             attr = header_map[head]
             attr_sym = attribute_sym head
-            next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
+            unless data_only
+              next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
+            end
+            next if validation_only
             value = value_from_cell cell, head
             next if attr_sym.nil?
             next if value.nil?
@@ -123,7 +184,10 @@ module XlsxToPqcXml
 
             attr = header_map[headers[col_pos]]
             attr_sym = attribute_sym headers[col_pos]
-            next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
+            unless data_only
+              next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
+            end
+            next if validation_only
             value = value_from_cell cell, headers[col_pos]
             next if attr_sym.nil?
             next if value.nil?
@@ -176,7 +240,7 @@ module XlsxToPqcXml
       return val unless attr.is_a? Attr
       return val unless attr.multivalued?
 
-      val.split(/#{Regexp.escape(attr.value_sep)}/).map(&:strip)
+      val.split(attr.split_regex).map(&:strip)
     end
 
     def cell_valid? cell, attr, address
@@ -198,7 +262,7 @@ module XlsxToPqcXml
     # @param [Attr] attr the attribute configuration
     # @param [String] address Excel style cell address; e.g., 'A2'
     #
-    # @return [Boolean] false if the value fails validation
+    # @return [Boolean] true if the value passes validation
     def validate_requirement value, attr, address
       return true unless attr.required?
       return true unless value.nil?
@@ -207,13 +271,22 @@ module XlsxToPqcXml
       false
     end
 
+    ##
+    # If +value+ and +attr#data_type+ are present, return true if +value+
+    # passes validation.
+    #
+    # @param [String] value the cell value
+    # @param [Attr] attr the attribute configuration
+    # @param [String] address Excel style cell address; e.g., 'A2'
+    #
+    # @return [Boolean] true if the value passes validation
+    # @raise [XlsxToPqcException] if data_type is not known
     def validate_type value, attr, address
       return true unless attr.data_type
       return true unless value
       data_type = attr.data_type
-      validator = TYPE_VALIDATORS[data_type]
-      raise XlsxToPdqException, "Unknown data type: #{data_type}" unless validator
-
+      validator = XlsxData.type_validator data_type
+      raise XlsxToPqcException, "Unknown data type: #{data_type}" unless validator
       return true if validator.call value
 
       error_sym = "non_valid_#{data_type}".to_sym
@@ -233,7 +306,7 @@ module XlsxToPqcXml
     # @param [Attr] attr the attribute configuration
     # @param [String] address Excel style cell address; e.g., 'A2'
     #
-    # @return [Boolean] false if the value fails validation
+    # @return [Boolean] true if the value passes validation
     def validate_uniqueness value, attr, address
       return true unless attr.unique?
       return true unless value
@@ -341,7 +414,6 @@ module XlsxToPqcXml
       end
     end
 
-    protected
 
     ##
     # Recursive Hash that returns the Excel column letter for given index:
@@ -355,8 +427,8 @@ module XlsxToPqcXml
     COLUMN_INDEX_TO_LETTER = Hash.new { |hash, key|
       ndx = key ? key.to_i : 0
       hash[ndx] = (ndx == 0 ?  'A' : hash[ndx - 1].succ)
-      hash
     }
+    protected
 
     def cell_address col_index, row_index
       "#{COLUMN_INDEX_TO_LETTER[col_index]}#{row_index + 1}"
@@ -368,9 +440,6 @@ module XlsxToPqcXml
     # return the attr name as a {Symbol}.
     #
     class Attr
-
-      # TODO: Add split RegEx method
-
       attr_accessor :attr, :headings, :requirement, :multivalued, :value_sep
       attr_accessor :unique, :data_type
 
@@ -386,18 +455,36 @@ module XlsxToPqcXml
         @data_type   = deets[:data_type] and deets[:data_type].to_s.to_sym
       end
 
+      ##
+      # Return +true+ if +:requirement+ is defined and is 'required'.
+      #
+      # @return [Boolean]
       def required?
         return unless @requirement
         return unless @requirement.is_a? String
         requirement.strip.downcase == 'required'
       end
 
+      ##
+      #
       def multivalued?
         @multivalued
       end
 
       def unique?
         @unique
+      end
+
+      ##
+      # Return the separator, if defined ,as a regular expression for splitting
+      # a column; return nil otherwise.
+      #
+      # @return [Regexp]
+      def split_regex
+        return if value_sep.nil?
+        return if value_sep.to_s.strip.empty?
+
+        /#{Regexp.escape(value_sep)}/
       end
 
       def to_s
@@ -420,17 +507,17 @@ module XlsxToPqcXml
     end
 
     ##
-    # For the given {head} value, like 'FILENAME', return the corresponding
+    # For the given +head+ value, like 'FILENAME', return the corresponding
     # configured attribute as a symbol or the name converted to a symbol. Return
-    # {nil} if {head} is nil.
+    # +nil+ if +head+ is nil.
     #
     # For example,
     #
-    #   head = 'FILENAME' # a configured header
-    #   attribute_sym head # => # :filename
+    #   head = 'FILENAME'   # if attr config exists for 'FILENAME'
+    #   attribute_sym head  # => :filename
     #
-    #   head = 'unconfigured header'
-    #   attribute_sym head # => :'unconfigured header'
+    #   head = 'unconfigured header'  # no attr config exists
+    #   attribute_sym head            # => :'unconfigured header'
     #
     # @param [String] head a head value
     # @return [Symbol]
@@ -441,5 +528,5 @@ module XlsxToPqcXml
     end
   end
 
-  class XlsxToPdqException < StandardError; end
+  class XlsxToPqcException < StandardError; end
 end

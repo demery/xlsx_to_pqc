@@ -55,6 +55,11 @@ RSpec.describe XlsxData do
     XlsxData.new xlsx_path: fails_data_type_ark_xlsx, config: sheet_config
   }
 
+  let(:fails_multiple_xlsx)   { File.join fixtures_path, 'fails_multiple.xlsx' }
+  let(:fails_multiple)       {
+    XlsxData.new xlsx_path: fails_multiple_xlsx, config: sheet_config
+  }
+
   let(:config_headers) {
     [
       'ARK ID',
@@ -124,6 +129,13 @@ RSpec.describe XlsxData do
     it 'should be invalid when not an ark' do
       expect(fails_data_type_ark).not_to be_valid
       expect(fails_data_type_ark.errors).to include :non_valid_ark
+    end
+
+    it 'should be multiply invalid' do
+      expect(fails_multiple).not_to be_valid
+      expect(fails_multiple.errors).to include :non_valid_ark
+      expect(fails_multiple.errors).to include :non_valid_integer
+      expect(fails_multiple.errors).to include :required_value_missing
     end
   end
 
