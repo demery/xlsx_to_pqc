@@ -123,6 +123,13 @@ RSpec.describe XlsxData do
     end
   end
 
+  context '#validate_headers' do
+    it 'should say a header is missing'
+    it 'should say a header is not unique'
+    it 'should say the headers are valid'
+    it 'should skip header validation'
+  end
+
   context '#valid?' do
     it 'should be valid' do
       expect(valid_data).to be_valid

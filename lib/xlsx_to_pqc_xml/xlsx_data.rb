@@ -171,6 +171,7 @@ module XlsxToPqcXml
       worksheet = xlsx[0]
       uniques   = Hash.new { |hash, key| hash[key] = Set.new }
 
+      # TODO: move to valid? integrate with @errors hash; process if headers fail?
       validate_headers unless data_only
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
