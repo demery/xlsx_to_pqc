@@ -324,13 +324,13 @@ module XlsxToPqcXml
     # @param [String] address Excel style cell address; e.g., 'A2'
     #
     # @return [Boolean] true if the value passes validation
-    # @raise [XlsxToPqcException] if data_type is not known
+    # @raise [UnknownDataTypeError] if data_type is not known
     def validate_type value, attr, address
       return true unless attr.data_type
       return true unless value
       data_type = attr.data_type
       validator = XlsxData.type_validator data_type
-      raise XlsxToPqcException, "Unknown data type: #{data_type}" unless validator
+        raise UnknownDataTypeError, "Unknown data type: #{data_type}" unless validator
       return true if validator.call value
 
       error_sym = "non_valid_#{data_type}".to_sym
@@ -579,5 +579,5 @@ module XlsxToPqcXml
     end
   end
 
-  class XlsxToPqcException < StandardError; end
+  class UnknownDataTypeError < StandardError; end
 end
