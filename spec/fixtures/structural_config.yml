@@ -7,10 +7,12 @@
   :headings:
     - ARK ID
   :requirement: required
+  :data_type: :ark
 - :attr: page_sequence
   :headings:
     - PAGE SEQUENCE
   :requirement: required
+  :unique: true
 - :attr: filename
   :headings:
     - FILENAME

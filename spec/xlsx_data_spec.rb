@@ -35,6 +35,16 @@ RSpec.describe XlsxData do
     XlsxData.new xlsx_path: column_headers_xlsx, config: column_header_config
   }
 
+  let(:missing_required_xlsx)   { File.join fixtures_path, 'missing_required_values.xlsx' }
+  let(:missing_required)       {
+    XlsxData.new xlsx_path: missing_required_xlsx, config: sheet_config
+  }
+
+  let(:fails_uniqueness_xlsx)   { File.join fixtures_path, 'fails_uniqueness.xlsx' }
+  let(:fails_uniqueness)       {
+    XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: sheet_config
+  }
+
   let(:config_headers) {
     [
       'ARK ID',
@@ -68,18 +78,32 @@ RSpec.describe XlsxData do
   context '#data' do
     it 'should return an array of hashes' do
       expect(valid_data.data).to be_an Array
-      # pp valid_data.data
       expect(valid_data.data.first).to be_a Hash
     end
 
     it 'should return an array of hashes when the headers are columns' do
       expect(column_header_data.data).to be_an Array
-      # pp column_header_data.data
       expect(column_header_data.data.first).to be_a Hash
     end
 
     it 'should return the same data whether headers are on columns or rows' do
       expect(column_header_data.data).to eq valid_data.data
+    end
+  end
+
+  context 'validation' do
+    it 'should be valid' do
+      expect(valid_data).to be_valid
+    end
+
+    it 'should be invalid when required values are missing' do
+      expect(missing_required).not_to be_valid
+      expect(missing_required.errors).to include :required_value_missing
+    end
+
+    it 'should be invalid when uniqueness fails' do
+      expect(fails_uniqueness).not_to be_valid
+      expect(fails_uniqueness.errors).to include :non_unique_value
     end
   end
 
