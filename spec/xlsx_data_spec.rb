@@ -104,34 +104,51 @@ RSpec.describe XlsxData do
     it 'should return the same data whether headers are on columns or rows' do
       expect(column_header_data.data).to eq valid_data.data
     end
+
+    it 'should generate no errors if :data_only is true' do
+      fails_multiple.data data_only: true
+      expect(fails_multiple.errors).to be_empty
+    end
   end
 
-  context 'validation' do
+  context '#process' do
+    it 'should not extract data if :validation_only is true' do
+      fails_multiple.process validation_only: true
+      expect(fails_multiple).not_to be_extracted
+    end
+
+    it 'should not validate if :data_only is true' do
+      fails_multiple.process data_only: true
+      expect(fails_multiple.errors).to be_empty
+    end
+  end
+
+  context '#valid?' do
     it 'should be valid' do
       expect(valid_data).to be_valid
     end
 
-    it 'should be invalid when required values are missing' do
+    it 'should be true when required values are missing' do
       expect(missing_required).not_to be_valid
       expect(missing_required.errors).to include :required_value_missing
     end
 
-    it 'should be invalid when uniqueness fails' do
+    it 'should be true when uniqueness fails' do
       expect(fails_uniqueness).not_to be_valid
       expect(fails_uniqueness.errors).to include :non_unique_value
     end
 
-    it 'should be invalid when not an integer' do
+    it 'should be true when not an integer' do
       expect(fails_data_type_integer).not_to be_valid
       expect(fails_data_type_integer.errors).to include :non_valid_integer
     end
 
-    it 'should be invalid when not an ark' do
+    it 'should be true when not an ark' do
       expect(fails_data_type_ark).not_to be_valid
       expect(fails_data_type_ark.errors).to include :non_valid_ark
     end
 
-    it 'should be multiply invalid' do
+    it 'should find multiple problems' do
       expect(fails_multiple).not_to be_valid
       expect(fails_multiple.errors).to include :non_valid_ark
       expect(fails_multiple.errors).to include :non_valid_integer

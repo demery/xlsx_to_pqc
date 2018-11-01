@@ -121,27 +121,50 @@ module XlsxToPqcXml
     def initialize xlsx_path:, config: {}
       @xlsx_path        = xlsx_path
       @sheet_config     = config.dup # be defensive
-      @data             = nil
+      @data             = []
       @headers          = []
       @errors           = Hash.new { |hash, key| hash[key] = [] }
       @uniques          = Hash.new { |hash, key| hash[key] = Set.new }
+      @extracted        = false
     end
 
+    ##
+    # Process the spreadsheet without extracting data and validate
+    #
+    # @return [Boolean] true if there are no errors
     def valid?
-      data
+      process validation_only: true
       @errors.empty?
+    end
+
+    ##
+    # Extract data and validate spreadsheet.
+    #
+    # @param [Boolean] data_only skip validation
+    # @return [Array<Hash>] array of the spreadsheet data as hashes
+    def data data_only: false
+      return @data unless @data.empty?
+      process data_only: data_only
+      @data
+    end
+
+    ##
+    # @return [Boolean] true if data has been extracted
+    def extracted?
+      @extracted
     end
 
     ##
     # Read and validate the spreadsheet at {xlsx_path}.
     #
+    # NOTE: Data will be an empty array if +:validation_only+ is +true+.
+    #
     # @param [Boolean] data_only skip validation
     # @param [Boolean] validation_only skip data extraction
     # @return [Array<Hash>] array of the spreadsheet data as hashes
-    def data data_only: false, validation_only: false
-      return @data unless @data.nil?
+    def process data_only: false, validation_only: false
 
-      # TODO: make sure config is valid first; esp. check data_types
+      # TODO: make sure config is valid first; check data_types mapped
 
       @data = []
 
@@ -182,8 +205,9 @@ module XlsxToPqcXml
           row_hash = {}
           row.cells.each_with_index do |cell, col_pos|
 
-            attr = header_map[headers[col_pos]]
-            attr_sym = attribute_sym headers[col_pos]
+            head = headers[col_pos]
+            attr = header_map[head]
+            attr_sym = attribute_sym head
             unless data_only
               next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
             end
@@ -193,9 +217,13 @@ module XlsxToPqcXml
             next if value.nil?
             row_hash[attr_sym] = value
           end
-          @data << row_hash
+          @data << row_hash unless validation_only
         end
       end
+      @extracted = true unless validation_only
+      # Using an instance variable for this is imperfect
+      # TODO: Scope life of map of unique values to method run
+      @uniques.clear # clear unique values after processing
 
       @data
     end
@@ -414,6 +442,7 @@ module XlsxToPqcXml
       end
     end
 
+    protected
 
     ##
     # Recursive Hash that returns the Excel column letter for given index:
@@ -428,7 +457,6 @@ module XlsxToPqcXml
       ndx = key ? key.to_i : 0
       hash[ndx] = (ndx == 0 ?  'A' : hash[ndx - 1].succ)
     }
-    protected
 
     def cell_address col_index, row_index
       "#{COLUMN_INDEX_TO_LETTER[col_index]}#{row_index + 1}"
