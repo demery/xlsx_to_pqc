@@ -124,7 +124,6 @@ module XlsxToPqcXml
       @data             = []
       @headers          = []
       @errors           = Hash.new { |hash, key| hash[key] = [] }
-      @uniques          = Hash.new { |hash, key| hash[key] = Set.new }
       @extracted        = false
     end
 
@@ -170,8 +169,9 @@ module XlsxToPqcXml
 
       xlsx      = RubyXL::Parser.parse xlsx_path
       worksheet = xlsx[0]
+      uniques   = Hash.new { |hash, key| hash[key] = Set.new }
 
-      validate_headers
+      validate_headers unless data_only
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
         # headings are in the first column; for each header, work across the
@@ -179,53 +179,69 @@ module XlsxToPqcXml
         headers.each_with_index do |head, row_pos|
           next if head.nil?
           worksheet.sheet_data.rows[row_pos].cells.each_with_index do |cell, col_pos|
-            # don't process the first column; it has the headings
-            next if col_pos == 0
+            next if col_pos == 0 # skip header column
+
             # each column represents a record, insert its value in the @data
             # array at the column position
             row_hash = @data[col_pos - 1] ||= {}
 
-            attr = header_map[head]
-            attr_sym = attribute_sym head
-            unless data_only
-              next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
-            end
-            next if validation_only
-            value = value_from_cell cell, head
-            next if attr_sym.nil?
-            next if value.nil?
-            row_hash[attr_sym] = value
+            cell_data                 = CellParams.new
+            cell_data.cell            = cell
+            cell_data.row_pos         = row_pos
+            cell_data.col_pos         = col_pos
+            cell_data.head            = head
+            cell_data.data_only       = data_only
+            cell_data.validation_only = validation_only
+            cell_data.row_hash        = row_hash
+
+            process_cell cell_data, uniques
           end
         end
       else
-        worksheet.sheet_data.rows.each do |row|
-          # don't process the first row; it has the headings
-          row_pos = row.index_in_collection
-          next if row_pos == 0
+        worksheet.sheet_data.rows.each_with_index do |row, row_pos|
+          next if row_pos == 0 # skip header row
+
           row_hash = {}
           row.cells.each_with_index do |cell, col_pos|
 
-            head = headers[col_pos]
-            attr = header_map[head]
-            attr_sym = attribute_sym head
-            unless data_only
-              next unless cell_valid? cell, attr, cell_address(col_pos, row_pos)
-            end
-            next if validation_only
-            value = value_from_cell cell, headers[col_pos]
-            next if attr_sym.nil?
-            next if value.nil?
-            row_hash[attr_sym] = value
+            cell_data                 = CellParams.new
+            cell_data.cell            = cell
+            cell_data.row_pos         = row_pos
+            cell_data.col_pos         = col_pos
+            cell_data.head            = headers[col_pos]
+            cell_data.data_only       = data_only
+            cell_data.validation_only = validation_only
+            cell_data.row_hash        = row_hash
+
+            process_cell cell_data, uniques
           end
           @data << row_hash unless validation_only
         end
       end
       @extracted = true unless validation_only
-      # Using an instance variable for this is imperfect
-      # TODO: Scope life of map of unique values to method run
-      @uniques.clear # clear unique values after processing
 
       @data
+    end
+
+    ##
+    #
+    # @param [CellParams] cell_data all values needed to process a cell
+    # @param [Hash] uniques hash to track unique_values
+    def process_cell cell_data, uniques
+      attr = header_map[cell_data.head]
+      attr_sym = attribute_sym cell_data.head
+      return if attr_sym.nil?
+
+      unless cell_data.data_only
+        address = cell_address(cell_data.col_pos, cell_data.row_pos)
+        return unless cell_valid? cell_data.cell, attr, address, uniques
+      end
+
+      return if cell_data.validation_only
+      value = value_from_cell cell_data.cell, cell_data.head
+      return if value.nil?
+
+      cell_data.row_hash[attr_sym] = value
     end
 
     ##
@@ -239,7 +255,7 @@ module XlsxToPqcXml
     end
 
     ##
-    # Return and array of {Attr} instances for all configured attributes where
+    # Return an array of {Attr} instances for all configured attributes where
     # the {Attr#required?} returns +true+; for example, if:
     #
     #   @sheet_config[:attributes][0][:requirement] == 'required'
@@ -271,12 +287,12 @@ module XlsxToPqcXml
       val.split(attr.split_regex).map(&:strip)
     end
 
-    def cell_valid? cell, attr, address
+    def cell_valid? cell, attr, address, uniques
       return if attr.nil?
       value = bare_cell_value cell
 
       return false unless validate_requirement value, attr, address
-      return false unless validate_uniqueness value, attr, address
+      return false unless validate_uniqueness value, attr, address, uniques
       return false unless validate_type value, attr, address
 
       true
@@ -335,15 +351,15 @@ module XlsxToPqcXml
     # @param [String] address Excel style cell address; e.g., 'A2'
     #
     # @return [Boolean] true if the value passes validation
-    def validate_uniqueness value, attr, address
+    def validate_uniqueness value, attr, address, uniques
       return true unless attr.unique?
       return true unless value
-      if @uniques[attr.attr_sym].include? value
+      if uniques[attr.attr_sym].include? value
         add_error :non_unique_value, address, "'#{value}'; heading: #{attr}"
         return false
       end
 
-      @uniques[attr.attr_sym] << value
+      uniques[attr.attr_sym] << value
       true
     end
     ##
@@ -460,6 +476,13 @@ module XlsxToPqcXml
 
     def cell_address col_index, row_index
       "#{COLUMN_INDEX_TO_LETTER[col_index]}#{row_index + 1}"
+    end
+
+
+    ##
+    # Convenience class to pass cell information to {#process_cell}.
+    class CellParams
+      attr_accessor :cell, :row_pos, :col_pos, :row_hash, :head, :data_only, :validation_only
     end
 
     ##
