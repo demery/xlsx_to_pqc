@@ -9,9 +9,18 @@ module XlsxToPqcXml
 
     ARK_REGEX = %r{\Aark:/\w+/\w+\Z}i
 
-    # TODO: Validate required values present
     # TODO: Validate pattern/data types
-    # TODO: Validate values uniq
+
+    TYPE_VALIDATORS = {
+      integer: lambda { |value|
+        begin
+          Integer value
+        rescue ArgumentError
+          false
+        end
+      },
+      ark: lambda { |value| value =~ ARK_REGEX }
+    }
 
     ##
     # Create a new XlsxData for XLSX file +xlsx_path+ with +config+ hash.
@@ -176,6 +185,7 @@ module XlsxToPqcXml
 
       return false unless validate_requirement value, attr, address
       return false unless validate_uniqueness value, attr, address
+      return false unless validate_type value, attr, address
 
       true
     end
@@ -193,8 +203,26 @@ module XlsxToPqcXml
       return true unless attr.required?
       return true unless value.nil?
 
-      @errors[:required_value_missing] << [address, "#{attr}"]
+      add_error :required_value_missing, address, "#{attr}"
       false
+    end
+
+    def validate_type value, attr, address
+      return true unless attr.data_type
+      return true unless value
+      data_type = attr.data_type
+      validator = TYPE_VALIDATORS[data_type]
+      raise XlsxToPdqException, "Unknown data type: #{data_type}" unless validator
+
+      return true if validator.call value
+
+      error_sym = "non_valid_#{data_type}".to_sym
+      add_error error_sym, address, "#{attr.data_type}: '#{value}'"
+      false
+    end
+
+    def add_error error_sym, address, text
+      @errors[error_sym] << OpenStruct.new(address: address, text: text)
     end
 
     ##
@@ -210,7 +238,7 @@ module XlsxToPqcXml
       return true unless attr.unique?
       return true unless value
       if @uniques[attr.attr_sym].include? value
-        @errors[:non_unique_value] << [address, "'#{value}'; heading: #{attr}"]
+        add_error :non_unique_value, address, "'#{value}'; heading: #{attr}"
         return false
       end
 
@@ -331,7 +359,7 @@ module XlsxToPqcXml
     }
 
     def cell_address col_index, row_index
-      "#{COLUMN_INDEX_TO_LETTER[col_index]}#{row_index}"
+      "#{COLUMN_INDEX_TO_LETTER[col_index]}#{row_index + 1}"
     end
 
     ##
@@ -344,6 +372,7 @@ module XlsxToPqcXml
       # TODO: Add split RegEx method
 
       attr_accessor :attr, :headings, :requirement, :multivalued, :value_sep
+      attr_accessor :unique, :data_type
 
       DEFAULT_VALUE_SEP = '|'
 
@@ -354,6 +383,7 @@ module XlsxToPqcXml
         @multivalued = deets[:multivalued]
         @value_sep   = deets[:value_sep] || DEFAULT_VALUE_SEP
         @unique      = deets[:unique] || false
+        @data_type   = deets[:data_type] and deets[:data_type].to_s.to_sym
       end
 
       def required?
@@ -410,4 +440,6 @@ module XlsxToPqcXml
       header_map[head].attr_sym
     end
   end
+
+  class XlsxToPdqException < StandardError; end
 end

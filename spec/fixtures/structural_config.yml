@@ -13,6 +13,7 @@
     - PAGE SEQUENCE
   :requirement: required
   :unique: true
+  :data_type: :integer
 - :attr: filename
   :headings:
     - FILENAME

@@ -45,6 +45,16 @@ RSpec.describe XlsxData do
     XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: sheet_config
   }
 
+  let(:fails_data_type_integer_xlsx)   { File.join fixtures_path, 'fails_data_type_integer.xlsx' }
+  let(:fails_data_type_integer)       {
+    XlsxData.new xlsx_path: fails_data_type_integer_xlsx, config: sheet_config
+  }
+
+  let(:fails_data_type_ark_xlsx)   { File.join fixtures_path, 'fails_data_type_ark.xlsx' }
+  let(:fails_data_type_ark)       {
+    XlsxData.new xlsx_path: fails_data_type_ark_xlsx, config: sheet_config
+  }
+
   let(:config_headers) {
     [
       'ARK ID',
@@ -104,6 +114,16 @@ RSpec.describe XlsxData do
     it 'should be invalid when uniqueness fails' do
       expect(fails_uniqueness).not_to be_valid
       expect(fails_uniqueness.errors).to include :non_unique_value
+    end
+
+    it 'should be invalid when not an integer' do
+      expect(fails_data_type_integer).not_to be_valid
+      expect(fails_data_type_integer.errors).to include :non_valid_integer
+    end
+
+    it 'should be invalid when not an ark' do
+      expect(fails_data_type_ark).not_to be_valid
+      expect(fails_data_type_ark.errors).to include :non_valid_ark
     end
   end
 
