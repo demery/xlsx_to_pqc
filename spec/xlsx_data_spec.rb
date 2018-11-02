@@ -60,6 +60,17 @@ RSpec.describe XlsxData do
     XlsxData.new xlsx_path: fails_multiple_xlsx, config: sheet_config
   }
 
+  let(:fails_required_headers_xlsx)   { File.join fixtures_path, 'fails_required_headers.xlsx' }
+  let(:fails_required_headers)       {
+    XlsxData.new xlsx_path: fails_required_headers_xlsx, config: sheet_config
+  }
+
+
+  let(:fails_unique_headers_xlsx)   { File.join fixtures_path, 'fails_unique_headers.xlsx' }
+  let(:fails_unique_headers)       {
+    XlsxData.new xlsx_path: fails_unique_headers_xlsx, config: sheet_config
+  }
+
   let(:config_headers) {
     [
       'ARK ID',
@@ -121,13 +132,40 @@ RSpec.describe XlsxData do
       fails_multiple.process data_only: true
       expect(fails_multiple.errors).to be_empty
     end
+
+    it 'should skip header validation' do
+      fails_required_headers.process data_only: true
+      expect(fails_required_headers.errors).to be_empty
+    end
+
+    it 'should fail if headers are invalid' do
+      suppress_output do # don't print the warning
+        fails_required_headers.process
+      end
+      expect(fails_required_headers).not_to be_extracted
+    end
+
+    it 'should not validate headers if :data_only is true' do
+      fails_required_headers.process data_only: true
+      expect(fails_required_headers.errors).to be_empty
+    end
   end
 
   context '#validate_headers' do
-    it 'should say a header is missing'
-    it 'should say a header is not unique'
-    it 'should say the headers are valid'
-    it 'should skip header validation'
+    it 'should say a header is missing' do
+      expect(fails_required_headers.validate_headers).not_to be_truthy
+      expect(fails_required_headers.errors).to include :required_header_missing
+    end
+
+    it 'should say a header is not unique' do
+      expect(fails_unique_headers.validate_headers).not_to be_truthy
+      expect(fails_unique_headers.errors).to include :non_unique_header
+    end
+
+    it 'should say the headers are valid' do
+      expect(valid_data.validate_headers).to be_truthy
+      expect(valid_data.errors).to be_empty
+    end
   end
 
   context '#valid?' do

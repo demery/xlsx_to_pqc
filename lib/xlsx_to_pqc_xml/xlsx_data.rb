@@ -119,12 +119,15 @@ module XlsxToPqcXml
     # @param [String] xlsx_path path to the XLSX file
     # @param [Hash] config spreadsheet configuration
     def initialize xlsx_path:, config: {}
-      @xlsx_path        = xlsx_path
-      @sheet_config     = config.dup # be defensive
-      @data             = []
-      @headers          = []
-      @errors           = Hash.new { |hash, key| hash[key] = [] }
-      @extracted        = false
+      @xlsx_path           = xlsx_path
+      @sheet_config        = config.dup # be defensive
+      @data                = []
+      @header_addresses    = []
+      @errors              = Hash.new { |hash, key| hash[key] = [] }
+      @required_attributes = []
+      @attributes          = []
+      @header_map          = {}
+      @extracted           = false
     end
 
     ##
@@ -132,8 +135,26 @@ module XlsxToPqcXml
     #
     # @return [Boolean] true if there are no errors
     def valid?
+      return unless validate_headers
+
       process validation_only: true
       @errors.empty?
+    end
+
+    ##
+    # Reset instance to pre-processed, validation state, clearing all cached
+    # instance variables
+    #
+    # TODO: Remove? As a fallback for weird state situations.
+    #
+    def reset
+      @data.clear
+      @header_addresses.clear
+      @errors.clear
+      @required_attributes.clear
+      @attributes.clear
+      @header_map.clear
+      @extracted = false
     end
 
     ##
@@ -164,15 +185,21 @@ module XlsxToPqcXml
     def process data_only: false, validation_only: false
 
       # TODO: make sure config is valid first; check data_types mapped
+      reset
 
       @data = []
 
       xlsx      = RubyXL::Parser.parse xlsx_path
-      worksheet = xlsx[0]
+      worksheet = xlsx[@sheet_config[:sheet_position] || 0]
       uniques   = Hash.new { |hash, key| hash[key] = Set.new }
 
-      # TODO: move to valid? integrate with @errors hash; process if headers fail?
-      validate_headers unless data_only
+      unless data_only
+        validate_headers
+        unless @errors.empty?
+          $stderr.puts "WARNING: Invalid headers! Processing aborted." unless @errors.empty?
+          return unless @errors.empty?
+        end
+      end
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
         # headings are in the first column; for each header, work across the
@@ -229,7 +256,7 @@ module XlsxToPqcXml
     # @param [CellParams] cell_data all values needed to process a cell
     # @param [Hash] uniques hash to track unique_values
     def process_cell cell_data, uniques
-      attr = header_map[cell_data.head]
+      attr = valid_header_map[cell_data.head]
       attr_sym = attribute_sym cell_data.head
       return if attr_sym.nil?
 
@@ -250,7 +277,7 @@ module XlsxToPqcXml
     #
     # @return [Array<Attr>] all configured attributes
     def attributes
-      return @attributes unless @attributes.nil?
+      return @attributes unless @attributes.empty?
 
       (@sheet_config[:attributes] || []).map { |a| Attr.new deets: a }
     end
@@ -265,7 +292,7 @@ module XlsxToPqcXml
     #
     # @return [Array<Attr>] all required attributes
     def required_attributes
-      return @required_attributes unless @required_attributes.nil?
+      return @required_attributes unless @required_attributes.empty?
 
       @required_attributes = attributes.select &:required?
     end
@@ -278,7 +305,7 @@ module XlsxToPqcXml
     # @param [String] head heading value for the cell's column/row
     def value_from_cell cell, head
       return if head.nil?
-      attr = header_map[head]
+      attr = valid_header_map[head]
 
       val = bare_cell_value cell
       return if val.nil?
@@ -392,8 +419,8 @@ module XlsxToPqcXml
     #     }
     #
     # @return [Hash] mapping of each allowed header to its attribute
-    def header_map
-      return @header_map unless @header_map.nil?
+    def valid_header_map
+      return @header_map unless @header_map.empty?
 
       @header_map = attributes.inject({}) { |memo, attr|
         attr.headings.each { |h| memo[h] = attr }
@@ -420,43 +447,97 @@ module XlsxToPqcXml
     #
     # @return [Array]
     def headers
-      return @headers unless @headers.empty?
+      headers_with_addresses.map &:header
+    end
+
+    ##
+    # Return all the spreadsheet headers with their addresses in Excel format;
+    # e.g., 'A1', 'A2', etc. Return value is an array of OpenStruct instances
+    # with attributes `#header` and `#address`.
+    #
+    # @return [Array<OpenStruct>] array of header value and addresses.
+    def headers_with_addresses
+      return @header_addresses unless @header_addresses.empty?
+      @header_addresses = []
 
       xlsx = RubyXL::Parser.parse xlsx_path
       worksheet = xlsx[@sheet_config[:sheet_position] || 0]
 
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
-        @headers = worksheet.sheet_data.rows.map do |row|
-          next nil if row.nil?
-          # headers are in the first column; get the first cell value in each
-          # row
-          header_from_cell row.cells.first
+        col_pos = 0
+        worksheet.sheet_data.rows.each_with_index do |row, row_pos|
+          # headers are in the first column; get the first cell value in each row
+          cell = row.cells.first unless row.nil?
+          address = cell_address col_pos, row_pos
+
+          val = header_from_cell cell
+          @header_addresses << OpenStruct.new(header: val, address: address)
         end
       else
-        @headers = worksheet.sheet_data.rows.first.cells.map do |cell|
-          header_from_cell cell
+        row_pos = 0
+        worksheet.sheet_data.rows.first.cells.each_with_index do |cell, col_pos|
+          address = cell_address col_pos, row_pos
+          val = header_from_cell cell
+
+          @header_addresses << OpenStruct.new(header: val, address: address)
         end
       end
+      @header_addresses
     end
 
     ##
     # Make sure there are no duplicate headers and that all the required
     # headers are present.
+    #
     # @raise [StandardError] if there are non-unique header names
     # @raise [StandardError] if one or more required columns is missing
     def validate_headers
+      valid = true
+      valid &= validate_headers_unique
+      valid &= validate_required_headers
+
+      valid
+    end
+
+    ##
+    # If there are non-unique headers, add the +:non_unique_header+ error to
+    # errors hash for each header and return +false+; otherwise, return +true+.
+    #
+    # @return [Boolean] true if all headers are unique
+    def validate_headers_unique
       compact_headers = headers.compact # remove nils
-      unless compact_headers.length == compact_headers.uniq.length
-        raise StandardError, "Duplicate column names in #{compact_headers.sort} (#{xlsx_path})"
+      return true if compact_headers.length == compact_headers.uniq.length
+
+      header_count = headers_with_addresses.inject({}) { |memo,struct|
+        (memo[struct.header] ||= []) << struct.address unless struct.header.nil?
+        memo
+      }
+      header_count.each do |head, addresses|
+        # binding.pry
+        next unless addresses.size > 1
+        add_error :non_unique_header, addresses, "#{head}"
       end
 
+      false
+    end
+
+    ##
+    # If there are non-unique headers, add a +:required_header_missing+ error to
+    # errors hash for each header and return +false+; otherwise, return +true+.
+    #
+    # @return [Boolean] true if all required headers are present
+    def validate_required_headers
       missing = required_attributes.reject { |a|
         a.headings.any? { |header| headers.include? header }
       }
+      return true if missing.empty?
 
-      unless missing.empty?
-        raise StandardError, "Missing required headings: #{missing.map(&:to_s).join '; '}"
+      missing.each do |head|
+        msg = "Required header not found: #{head}"
+        add_error :required_header_missing, 'NONE', msg
       end
+
+      false
     end
 
     protected
@@ -575,8 +656,8 @@ module XlsxToPqcXml
     # @return [Symbol]
     def attribute_sym head
       return if head.nil?
-      return head.to_sym unless header_map[head]
-      header_map[head].attr_sym
+      return head.to_sym unless valid_header_map[head]
+      valid_header_map[head].attr_sym
     end
   end
 
