@@ -21,9 +21,9 @@ RSpec.describe StructuralMetadata do
   let(:ark)                   { 'ark:/99999/fk42244n9f' }
   let(:ark_dir)               { ark.gsub(%r{:}, '+').gsub(%r{/}, '=') }
 
-  let(:good_structural_xlsx)  { File.join fixtures_path, 'good_pqc_structural.xlsx' }
+  let(:good_structural_xlsx)  { File.join fixtures_dir, 'good_pqc_structural.xlsx' }
   let(:package_dir)           { File.join staging_dir, ark_dir }
-  let(:structural_config_yml) { File.join fixtures_path, 'structural_config.yml' }
+  let(:structural_config_yml) { File.join fixtures_dir, 'structural_config.yml' }
   let(:sheet_config)          { YAML.load open(structural_config_yml).read }
 
   let(:structural_xlsx)       { File.join package_dir, 'pqc_structural.xlsx' }

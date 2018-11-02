@@ -10,70 +10,6 @@ module XlsxToPqcXml
     # regular expression to match an ark
     ARK_REGEX = %r{\Aark:/\w+/\w+\Z}i
 
-    # Class methods
-    class << self
-
-      # Hash of data type validators
-      DEFAULT_TYPE_VALIDATORS = {
-        integer: lambda { |value|
-          begin
-            Integer value
-          rescue ArgumentError
-            false
-          end
-        },
-        ark: lambda { |value| value =~ ARK_REGEX }
-      }.freeze
-
-      @@type_validators = DEFAULT_TYPE_VALIDATORS
-
-      ##
-      # @return [Hash] copy of currently configure validators
-      def type_validators
-        @@type_validators.dup
-      end
-
-      ##
-      # Add a new or replace an existing +validator+ for +data_type+. The
-      # validator must be a lambda that takes one argument, the cell value
-      # and returns a truthy value if value is valid and non-truthy otherwise.
-      #
-      # The validator should not be passed a +nil+ value and so does not need to
-      # handle the case of +nil+.
-      #
-      # @param [Symbol] data_type e.g., +:string+, +:year+
-      # @param [Lambda] validator
-      def set_type_validator data_type, validator
-        @@type_validators[data_type.to_sym] = validator
-      end
-
-      ##
-      # Delete the validator for +data_type+.
-      #
-      # @param [Symbol] data_type
-      # @return [Lambda]
-      def delete_type_validator data_type
-        @@type_validators.delete data_type.to_sym
-      end
-
-      ##
-      # Return the validator for +data_type+.
-      #
-      # @param [Symbol] data_type
-      # @return [Lambda] the deleted validator
-      def type_validator data_type
-        @@type_validators[data_type.to_sym]
-      end
-
-      ##
-      # Return whether a validator exists for +data_type+.
-      #
-      # @param [Symbol] data_type
-      # @return [Boolean]
-      def has_validator? data_type
-        @@type_validators.include? data_type.to_sym
-      end
-    end
 
     ##
     # Create a new XlsxData for XLSX file +xlsx_path+ with +config+ hash.
@@ -135,26 +71,16 @@ module XlsxToPqcXml
     #
     # @return [Boolean] true if there are no errors
     def valid?
+      @errors.clear
+
+      unless validate_config
+        raise XlsxDataException.new "Invalid configuration", errors = @errors
+      end
+
       return unless validate_headers
 
       process validation_only: true
       @errors.empty?
-    end
-
-    ##
-    # Reset instance to pre-processed, validation state, clearing all cached
-    # instance variables
-    #
-    # TODO: Remove? As a fallback for weird state situations.
-    #
-    def reset
-      @data.clear
-      @header_addresses.clear
-      @errors.clear
-      @required_attributes.clear
-      @attributes.clear
-      @header_map.clear
-      @extracted = false
     end
 
     ##
@@ -169,12 +95,6 @@ module XlsxToPqcXml
     end
 
     ##
-    # @return [Boolean] true if data has been extracted
-    def extracted?
-      @extracted
-    end
-
-    ##
     # Read and validate the spreadsheet at {xlsx_path}.
     #
     # NOTE: Data will be an empty array if +:validation_only+ is +true+.
@@ -184,8 +104,7 @@ module XlsxToPqcXml
     # @return [Array<Hash>] array of the spreadsheet data as hashes
     def process data_only: false, validation_only: false
 
-      # TODO: make sure config is valid first; check data_types mapped
-      reset
+      reset # clear all cached data
 
       @data = []
 
@@ -251,26 +170,9 @@ module XlsxToPqcXml
       @data
     end
 
-    ##
-    #
-    # @param [CellParams] cell_data all values needed to process a cell
-    # @param [Hash] uniques hash to track unique_values
-    def process_cell cell_data, uniques
-      attr = valid_header_map[cell_data.head]
-      attr_sym = attribute_sym cell_data.head
-      return if attr_sym.nil?
-
-      unless cell_data.data_only
-        address = cell_address(cell_data.col_pos, cell_data.row_pos)
-        return unless cell_valid? cell_data.cell, attr, address, uniques
-      end
-
-      return if cell_data.validation_only
-      value = value_from_cell cell_data.cell, cell_data.head
-      return if value.nil?
-
-      cell_data.row_hash[attr_sym] = value
-    end
+    ###########################################################################
+    # CONFIGURATION
+    ###########################################################################
 
     ##
     # Return an array of {Attr} instances for the given sheet config.
@@ -298,112 +200,6 @@ module XlsxToPqcXml
     end
 
     ##
-    # Return the value of the cell, splitting the cell if it is multi-valued.
-    # Returns +nil+ if +head+ nil or +cell+ is empty.
-    #
-    # @param [RubyXL::Cell]  cell the cell containing the data
-    # @param [String] head heading value for the cell's column/row
-    def value_from_cell cell, head
-      return if head.nil?
-      attr = valid_header_map[head]
-
-      val = bare_cell_value cell
-      return if val.nil?
-      return val unless attr.is_a? Attr
-      return val unless attr.multivalued?
-
-      val.split(attr.split_regex).map(&:strip)
-    end
-
-    def cell_valid? cell, attr, address, uniques
-      return if attr.nil?
-      value = bare_cell_value cell
-
-      return false unless validate_requirement value, attr, address
-      return false unless validate_uniqueness value, attr, address, uniques
-      return false unless validate_type value, attr, address
-
-      true
-    end
-
-    ##
-    # If +value+ is not present and +attr#required?+ is +true+, add the
-    # error to the errors hash and return +false+; otherwise, return +true+.
-    #
-    # @param [String] value the cell value
-    # @param [Attr] attr the attribute configuration
-    # @param [String] address Excel style cell address; e.g., 'A2'
-    #
-    # @return [Boolean] true if the value passes validation
-    def validate_requirement value, attr, address
-      return true unless attr.required?
-      return true unless value.nil?
-
-      add_error :required_value_missing, address, "#{attr}"
-      false
-    end
-
-    ##
-    # If +value+ and +attr#data_type+ are present, return true if +value+
-    # passes validation.
-    #
-    # @param [String] value the cell value
-    # @param [Attr] attr the attribute configuration
-    # @param [String] address Excel style cell address; e.g., 'A2'
-    #
-    # @return [Boolean] true if the value passes validation
-    # @raise [UnknownDataTypeError] if data_type is not known
-    def validate_type value, attr, address
-      return true unless attr.data_type
-      return true unless value
-      data_type = attr.data_type
-      validator = XlsxData.type_validator data_type
-        raise UnknownDataTypeError, "Unknown data type: #{data_type}" unless validator
-      return true if validator.call value
-
-      error_sym = "non_valid_#{data_type}".to_sym
-      add_error error_sym, address, "#{attr.data_type}: '#{value}'"
-      false
-    end
-
-    def add_error error_sym, address, text
-      @errors[error_sym] << OpenStruct.new(address: address, text: text)
-    end
-
-    ##
-    # If +value+ is present and +attr#unique?+ is +true+, add the error to
-    # errors hash and return +false+; otherwise, return +true+.
-    #
-    # @param [String] value the cell value
-    # @param [Attr] attr the attribute configuration
-    # @param [String] address Excel style cell address; e.g., 'A2'
-    #
-    # @return [Boolean] true if the value passes validation
-    def validate_uniqueness value, attr, address, uniques
-      return true unless attr.unique?
-      return true unless value
-      if uniques[attr.attr_sym].include? value
-        add_error :non_unique_value, address, "'#{value}'; heading: #{attr}"
-        return false
-      end
-
-      uniques[attr.attr_sym] << value
-      true
-    end
-    ##
-    # Return the cell value as a string; return nil if cell is blank.
-    #
-    # @param [RubyXL::Cell] cell
-    # @return [String]
-    def bare_cell_value cell
-      return if cell.nil?
-      return if cell.value.nil?
-      return if cell.value.to_s.strip.empty?
-
-      cell.value.to_s.strip
-    end
-
-    ##
     # Return Hash of headers mapped to their {Attr} instances. For example,
     # given:
     #
@@ -426,6 +222,63 @@ module XlsxToPqcXml
         attr.headings.each { |h| memo[h] = attr }
         memo
       }
+    end
+
+    ###########################################################################
+    # CELL HANDLING
+    ###########################################################################
+
+    ##
+    # Extract and/or validate the given cell.
+    #
+    # @param [CellParams] cell_data all values needed to process a cell
+    # @param [Hash] uniques hash to track unique_values
+    def process_cell cell_data, uniques
+      attr = valid_header_map[cell_data.head]
+      attr_sym = attribute_sym cell_data.head
+      return if attr_sym.nil?
+
+      unless cell_data.data_only
+        address = cell_address(cell_data.col_pos, cell_data.row_pos)
+        return unless cell_valid? cell_data.cell, attr, address, uniques
+      end
+
+      return if cell_data.validation_only
+      value = value_from_cell cell_data.cell, cell_data.head
+      return if value.nil?
+
+      cell_data.row_hash[attr_sym] = value
+    end
+
+    ##
+    # Return the value of the cell, splitting the cell if it is multi-valued.
+    # Returns +nil+ if +head+ nil or +cell+ is empty.
+    #
+    # @param [RubyXL::Cell]  cell the cell containing the data
+    # @param [String] head heading value for the cell's column/row
+    def value_from_cell cell, head
+      return if head.nil?
+      attr = valid_header_map[head]
+
+      val = bare_cell_value cell
+      return if val.nil?
+      return val unless attr.is_a? Attr
+      return val unless attr.multivalued?
+
+      val.split(attr.split_regex).map(&:strip)
+    end
+
+    ##
+    # Return the cell value as a string; return nil if cell is blank.
+    #
+    # @param [RubyXL::Cell] cell
+    # @return [String]
+    def bare_cell_value cell
+      return if cell.nil?
+      return if cell.value.nil?
+      return if cell.value.to_s.strip.empty?
+
+      cell.value.to_s.strip
     end
 
     ##
@@ -486,11 +339,101 @@ module XlsxToPqcXml
     end
 
     ##
+    # @return [Boolean] true if data has been extracted
+    def extracted?
+      @extracted
+    end
+
+    ##
+    # Reset instance to pre-processed, validation state, clearing all cached
+    # instance variables
+    def reset
+      @data.clear
+      @header_addresses.clear
+      @errors.clear
+      @required_attributes.clear
+      @attributes.clear
+      @header_map.clear
+      @extracted = false
+    end
+
+    ###########################################################################
+    # VALIDATION
+    ###########################################################################
+
+    # Class methods
+    class << self
+
+      # Hash of data type validators
+      DEFAULT_TYPE_VALIDATORS = {
+        integer: lambda { |value|
+          begin
+            Integer value
+          rescue ArgumentError
+            false
+          end
+        },
+        ark: lambda { |value| value =~ ARK_REGEX }
+      }.freeze
+
+      @@type_validators = DEFAULT_TYPE_VALIDATORS.inject({}) { |memo, type_lambda|
+        memo[type_lambda.first] = type_lambda.last
+        memo
+      }
+
+      ##
+      # @return [Hash] copy of currently configure validators
+      def type_validators
+        @@type_validators.dup
+      end
+
+      ##
+      # Add a new or replace an existing +validator+ for +data_type+. The
+      # validator must be a lambda that takes one argument, the cell value
+      # and returns a truthy value if value is valid and non-truthy otherwise.
+      #
+      # The validator should not be passed a +nil+ value and so does not need to
+      # handle the case of +nil+.
+      #
+      # @param [Symbol] data_type e.g., +:string+, +:year+
+      # @param [Lambda] validator
+      def set_type_validator data_type, validator
+        @@type_validators[data_type.to_sym] = validator
+      end
+
+      ##
+      # Delete the validator for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Lambda]
+      def delete_type_validator data_type
+        @@type_validators.delete data_type.to_sym
+      end
+
+      ##
+      # Return the validator for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Lambda] the deleted validator
+      def type_validator data_type
+        @@type_validators[data_type.to_sym]
+      end
+
+      ##
+      # Return whether a validator exists for +data_type+.
+      #
+      # @param [Symbol] data_type
+      # @return [Boolean]
+      def has_validator? data_type
+        @@type_validators.include? data_type.to_sym
+      end
+    end
+
+    ##
     # Make sure there are no duplicate headers and that all the required
     # headers are present.
     #
-    # @raise [StandardError] if there are non-unique header names
-    # @raise [StandardError] if one or more required columns is missing
+    # @return [Boolean] true if all header validations pass
     def validate_headers
       valid = true
       valid &= validate_headers_unique
@@ -515,7 +458,7 @@ module XlsxToPqcXml
       header_count.each do |head, addresses|
         # binding.pry
         next unless addresses.size > 1
-        add_error :non_unique_header, addresses, "#{head}"
+        add_error :non_unique_header, "#{head}", addresses
       end
 
       false
@@ -534,10 +477,154 @@ module XlsxToPqcXml
 
       missing.each do |head|
         msg = "Required header not found: #{head}"
-        add_error :required_header_missing, 'NONE', msg
+        add_error :required_header_missing, msg
       end
 
       false
+    end
+
+    ##
+    # If cell has an attribute configuration, check it for validity for any
+    # defined requirement, uniqueness, or data type constraints.
+    #
+    # Invokes the following validation methods and returns false at the first
+    # failure encountered:
+    #
+    #     validate_requirement
+    #     validate_uniqueness
+    #     validate_type
+    #
+    # @param [RubyXL::Cell] cell
+    # @param [Attr] attr
+    # @param [String] address the Excel style cell address; .e.g, 'A2'
+    # @param [Hash] uniques cache of values for validating uniqueness
+    # @return [Boolean] false if an validation fails
+    def cell_valid? cell, attr, address, uniques
+      return if attr.nil?
+      value = bare_cell_value cell
+
+      return false unless validate_requirement value, attr, address
+      return false unless validate_uniqueness value, attr, address, uniques
+      return false unless validate_type value, attr, address
+
+      true
+    end
+
+    ##
+    # If +value+ is present and +attr#unique?+ is +true+, add the error to
+    # errors hash and return +false+; otherwise, return +true+.
+    #
+    # @param [String] value the cell value
+    # @param [Attr] attr the attribute configuration
+    # @param [String] address Excel style cell address; e.g., 'A2'
+    #
+    # @return [Boolean] true if the value passes validation
+    def validate_uniqueness value, attr, address, uniques
+      return true unless attr.unique?
+      return true unless value
+      if uniques[attr.attr_sym].include? value
+        add_error :non_unique_value, "'#{value}'; heading: #{attr}", address
+        return false
+      end
+
+      uniques[attr.attr_sym] << value
+      true
+    end
+
+    ##
+    # If +value+ is not present and +attr#required?+ is +true+, add the
+    # error to the errors hash and return +false+; otherwise, return +true+.
+    #
+    # @param [String] value the cell value
+    # @param [Attr] attr the attribute configuration
+    # @param [String] address Excel style cell address; e.g., 'A2'
+    #
+    # @return [Boolean] true if the value passes validation
+    def validate_requirement value, attr, address
+      return true unless attr.required?
+      return true unless value.nil?
+
+      add_error :required_value_missing, "#{attr}", address
+      false
+    end
+
+    ##
+    # If +value+ and +attr#data_type+ are present, return true if +value+
+    # passes validation.
+    #
+    # @param [String] value the cell value
+    # @param [Attr] attr the attribute configuration
+    # @param [String] address Excel style cell address; e.g., 'A2'
+    #
+    # @return [Boolean] true if the value passes validation
+    # @raise [XlsxDataException] if data_type is not known
+    def validate_type value, attr, address
+      return true unless attr.data_type
+      return true unless value
+      data_type = attr.data_type
+      validator = XlsxData.type_validator data_type
+      raise XlsxDataException, "Unknown data type: #{data_type}" unless validator
+      return true if validator.call value
+
+      error_sym = "non_valid_#{data_type}".to_sym
+      add_error error_sym, address, "'#{value}'"
+      false
+    end
+
+    ##
+    # Make sure we have a valid configuration:
+    #
+    # - All configuration data types must be defined
+    # - All attributes must have an :attr
+    # - All attibutes must have an Array of valid :headings
+    #
+    # @return [Boolean] false if any checks fail
+    def validate_config
+      valid = true
+      attributes.each do |attr|
+        next unless attr.data_type
+        unless XlsxData.has_validator? attr.data_type
+          add_error :unknown_data_type, attr.data_type
+          valid &= false
+        end
+      end
+
+      # TODO: Add check for duplicate attrs
+      # TODO: Add check for duplicate headings
+      @sheet_config.fetch(:attributes, []).each do |attr_hash|
+
+        unless attr_hash[:attr]
+          add_error :attr_not_defined, attr_hash.inspect
+          valid &= false
+        end
+
+        unless attr_hash[:headings].is_a? Array
+          add_error :no_headings_array, attr_hash.inspect
+          valid &= false
+        end
+
+      end
+
+      valid
+    end
+
+    ##
+    # Add a single error to the errors array stored under the key +error_sym+.
+    #
+    # Each error is added to an array in the errors hash under the key
+    # +error_sym+. The error information is stored in an OpenStruct instance
+    # with attributes +#address+ and +#text+. A typical key value pair would look
+    # like:
+    #
+    #     :non_valid_integer  => [#<OpenStruct address="B3", text="'2.3'">]
+    #
+    # @param [Symbol] error_sym a key identify the error type, e.g., +:required_value_missing+
+    # @param [String,Array<String>] address Excel style address (e.g.,
+    #                                     'A3') or array of addresses
+    # @param [String] text clarifying information like the name of the missing header
+    # @return [Array<OpenStruct>] current array of error structs under key +error_sym+
+    def add_error error_sym, text, address=nil
+      @errors[error_sym] << OpenStruct.new(address: address, text: text)
     end
 
     protected
@@ -561,6 +648,10 @@ module XlsxToPqcXml
     end
 
 
+    ###########################################################################
+    # HELPER CLASSES
+    ###########################################################################
+
     ##
     # Convenience class to pass cell information to {#process_cell}.
     class CellParams
@@ -570,7 +661,7 @@ module XlsxToPqcXml
     ##
     # Convenience class to encapsulate the configuration of an attribute,
     # with boolean convenience methods for required and multivalued fields,
-    # return the attr name as a {Symbol}.
+    # return the attr name as a Symbol.
     #
     class Attr
       attr_accessor :attr, :headings, :requirement, :multivalued, :value_sep
@@ -598,8 +689,6 @@ module XlsxToPqcXml
         requirement.strip.downcase == 'required'
       end
 
-      ##
-      #
       def multivalued?
         @multivalued
       end
@@ -661,5 +750,12 @@ module XlsxToPqcXml
     end
   end
 
-  class UnknownDataTypeError < StandardError; end
+  class XlsxDataException < StandardError
+    attr_reader :errors
+
+    def initialize msg='XlsxDataException encountered', errors={}
+      @errors = errors
+      super msg
+    end
+  end
 end

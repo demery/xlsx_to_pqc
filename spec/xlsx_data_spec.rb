@@ -21,55 +21,35 @@ RSpec.describe XlsxData do
   end
 
 
-  let(:good_structural_xlsx)    { File.join fixtures_path, 'good_pqc_structural.xlsx' }
-  let(:structural_config_yml)   { File.join fixtures_path, 'structural_config.yml' }
-  let(:sheet_config)            { YAML.load open(structural_config_yml).read }
-  let(:valid_data)              {
-    XlsxData.new xlsx_path: good_structural_xlsx, config: sheet_config
-  }
+  # Configuration hashes
+  let(:structural_config)              { YAML.load open(fixture_path 'structural_config.yml').read }
+  let(:column_header_config)           { YAML.load open(fixture_path 'column_config.yml').read }
+  let(:blurg_data_type_config)         { YAML.load open(fixture_path 'blurg_data_type_config.yml').read }
+  let(:bad_config)                     { YAML.load open(fixture_path 'bad_config.yml').read }
 
-  let(:column_headers_xlsx)     { File.join fixtures_path, 'column_headers.xlsx' }
-  let(:column_config_yml)       { File.join fixtures_path, 'column_config.yml' }
-  let(:column_header_config)    { YAML.load open(column_config_yml).read }
-  let(:column_header_data)      {
-    XlsxData.new xlsx_path: column_headers_xlsx, config: column_header_config
-  }
+  # XLSX fixtures
+  let(:good_structural_xlsx)           { fixture_path 'good_pqc_structural.xlsx' }
+  let(:column_headers_xlsx)            { fixture_path 'column_headers.xlsx' }
+  let(:missing_required_xlsx)          { fixture_path 'missing_required_values.xlsx' }
+  let(:fails_uniqueness_xlsx)          { fixture_path 'fails_uniqueness.xlsx' }
+  let(:fails_data_type_integer_xlsx)   { fixture_path 'fails_data_type_integer.xlsx' }
+  let(:fails_data_type_ark_xlsx)       { fixture_path 'fails_data_type_ark.xlsx' }
+  let(:fails_required_headers_xlsx)    { fixture_path 'fails_required_headers.xlsx' }
+  let(:fails_unique_headers_xlsx)      { fixture_path 'fails_unique_headers.xlsx' }
+  let(:fails_multiple_xlsx)            { fixture_path 'fails_multiple.xlsx' }
 
-  let(:missing_required_xlsx)   { File.join fixtures_path, 'missing_required_values.xlsx' }
-  let(:missing_required)       {
-    XlsxData.new xlsx_path: missing_required_xlsx, config: sheet_config
-  }
-
-  let(:fails_uniqueness_xlsx)   { File.join fixtures_path, 'fails_uniqueness.xlsx' }
-  let(:fails_uniqueness)       {
-    XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: sheet_config
-  }
-
-  let(:fails_data_type_integer_xlsx)   { File.join fixtures_path, 'fails_data_type_integer.xlsx' }
-  let(:fails_data_type_integer)       {
-    XlsxData.new xlsx_path: fails_data_type_integer_xlsx, config: sheet_config
-  }
-
-  let(:fails_data_type_ark_xlsx)   { File.join fixtures_path, 'fails_data_type_ark.xlsx' }
-  let(:fails_data_type_ark)       {
-    XlsxData.new xlsx_path: fails_data_type_ark_xlsx, config: sheet_config
-  }
-
-  let(:fails_multiple_xlsx)   { File.join fixtures_path, 'fails_multiple.xlsx' }
-  let(:fails_multiple)       {
-    XlsxData.new xlsx_path: fails_multiple_xlsx, config: sheet_config
-  }
-
-  let(:fails_required_headers_xlsx)   { File.join fixtures_path, 'fails_required_headers.xlsx' }
-  let(:fails_required_headers)       {
-    XlsxData.new xlsx_path: fails_required_headers_xlsx, config: sheet_config
-  }
-
-
-  let(:fails_unique_headers_xlsx)   { File.join fixtures_path, 'fails_unique_headers.xlsx' }
-  let(:fails_unique_headers)       {
-    XlsxData.new xlsx_path: fails_unique_headers_xlsx, config: sheet_config
-  }
+  # XlsxData instances
+  let(:valid_data)                     { XlsxData.new xlsx_path: good_structural_xlsx, config: structural_config }
+  let(:column_header_data)             { XlsxData.new xlsx_path: column_headers_xlsx, config: column_header_config }
+  let(:missing_required)               { XlsxData.new xlsx_path: missing_required_xlsx, config: structural_config }
+  let(:fails_uniqueness)               { XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: structural_config }
+  let(:fails_data_type_integer)        { XlsxData.new xlsx_path: fails_data_type_integer_xlsx, config: structural_config }
+  let(:fails_data_type_ark)            { XlsxData.new xlsx_path: fails_data_type_ark_xlsx, config: structural_config }
+  let(:fails_multiple)                 { XlsxData.new xlsx_path: fails_multiple_xlsx, config: structural_config }
+  let(:fails_required_headers)         { XlsxData.new xlsx_path: fails_required_headers_xlsx, config: structural_config }
+  let(:fails_unique_headers)           { XlsxData.new xlsx_path: fails_unique_headers_xlsx, config: structural_config }
+  let(:blurg_data_type_data)           { XlsxData.new xlsx_path: good_structural_xlsx, config: blurg_data_type_config }
+  let(:bad_config_data)                { XlsxData.new xlsx_path: good_structural_xlsx, config: bad_config       }
 
   let(:config_headers) {
     [
@@ -87,7 +67,7 @@ RSpec.describe XlsxData do
 
   context 'new' do
     it 'should create a XlsxData instance' do
-      expect(XlsxData.new xlsx_path: good_structural_xlsx, config: sheet_config).to be_a XlsxData
+      expect(XlsxData.new xlsx_path: good_structural_xlsx, config: structural_config).to be_a XlsxData
     end
   end
 
@@ -121,6 +101,32 @@ RSpec.describe XlsxData do
       expect(fails_multiple.errors).to be_empty
     end
   end
+
+  context 'type validators' do
+    it 'should raise an error with an unknown data type' do
+      expect {
+        blurg_data_type_data.valid?
+      }.to raise_error(XlsxDataException) { |error|
+        expect(error.errors).to include :unknown_data_type
+      }
+    end
+
+    it 'should raise an error a bad configuration' do
+      expect {
+        bad_config_data.valid?
+      }.to raise_error(XlsxDataException) { |error|
+        expect(error.errors).to include :unknown_data_type
+        expect(error.errors).to include :attr_not_defined
+        expect(error.errors).to include :no_headings_array
+      }
+    end
+
+    it 'should not raise an error data_type is added' do
+      XlsxData.set_type_validator :blurg, lambda { |v| true }
+      expect { blurg_data_type_data.valid? }.not_to raise_error
+    end
+  end
+
 
   context '#process' do
     it 'should not extract data if :validation_only is true' do
@@ -186,6 +192,7 @@ RSpec.describe XlsxData do
     it 'should be true when not an integer' do
       expect(fails_data_type_integer).not_to be_valid
       expect(fails_data_type_integer.errors).to include :non_valid_integer
+      pp fails_data_type_integer.errors
     end
 
     it 'should be true when not an ark' do

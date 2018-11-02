@@ -1,0 +1,33 @@
+---
+:sheet_name: 'Structural'
+:sheet_position: 0
+:heading_type: 'row'
+:attributes:
+- :headings:
+    - ARK ID
+  :requirement: required
+  :data_type: :blurg
+- :attr: page_sequence
+  :requirement: required
+  :unique: true
+  :data_type: :integer
+- :attr: filename
+  :headings: FILENAME
+  :requirement: required
+- :attr: visible_page
+  :headings:
+    - VISIBLE PAGE
+  :requirement: required
+- :attr: toc_entry
+  :headings:
+    - TOC ENTRY
+  :multivalued: true
+  :value_sep: '|'
+- :attr: ill_entry
+  :headings:
+    - ILL ENTRY
+  :multivalued: true
+  :value_sep: '|'
+- :attr: notes
+  :headings:
+    - NOTES

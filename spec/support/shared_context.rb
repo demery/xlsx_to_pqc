@@ -9,10 +9,13 @@ RSpec.configure do |rspec|
 end
 
 RSpec.shared_context 'shared context', :shared_context => :metadata do
-  let(:fixtures_path) { File.expand_path '../../fixtures', __FILE__ }
+  FIXTURES_DIR = File.expand_path '../../fixtures', __FILE__
+
+  let(:fixtures_dir) { File.expand_path '../../fixtures', __FILE__ }
   let(:tmp_dir) { File.expand_path '../../../tmp', __FILE__ }
   let(:staging_dir) { File.join tmp_dir, 'staging'}
 
+  # taken from https://gist.github.com/moertel/11091573
   def suppress_output
     begin
       original_stderr = $stderr.clone
@@ -29,6 +32,10 @@ RSpec.shared_context 'shared context', :shared_context => :metadata do
       $stderr.reopen(original_stderr)
     end
     retval
+  end
+
+  def fixture_path file
+    File.join FIXTURES_DIR, file
   end
 end
 
