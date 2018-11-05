@@ -175,27 +175,26 @@ RSpec.describe XlsxData do
   end
 
   context '#valid?' do
-    it 'should be valid' do
+    it 'should be true when data is valid' do
       expect(valid_data).to be_valid
     end
 
-    it 'should be true when required values are missing' do
+    it 'should be false when required values are missing' do
       expect(missing_required).not_to be_valid
       expect(missing_required.errors).to include :required_value_missing
     end
 
-    it 'should be true when uniqueness fails' do
+    it 'should be false when uniqueness fails' do
       expect(fails_uniqueness).not_to be_valid
       expect(fails_uniqueness.errors).to include :non_unique_value
     end
 
-    it 'should be true when not an integer' do
+    it 'should be false when a value is not a valid integer' do
       expect(fails_data_type_integer).not_to be_valid
       expect(fails_data_type_integer.errors).to include :non_valid_integer
-      pp fails_data_type_integer.errors
     end
 
-    it 'should be true when not an ark' do
+    it 'should be false when not a value is not a valid ark' do
       expect(fails_data_type_ark).not_to be_valid
       expect(fails_data_type_ark.errors).to include :non_valid_ark
     end
