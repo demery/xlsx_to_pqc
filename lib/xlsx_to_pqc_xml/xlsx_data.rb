@@ -16,41 +16,51 @@ module XlsxToPqcXml
     #
     # Config hash is similar to the following:
     #
-    #     { :sheet_name=>"Structural",
-    #       :sheet_position=>0,
-    #       :heading_type=>"column",
-    #       :attributes=>
-    #         [{ :attr=>"ark_id",
-    #            :headings=>["ARK ID"],
-    #            :requirement=>"required"
-    #          },
-    #          { :attr=>"page_sequence",
-    #            :headings=>["PAGE SEQUENCE"],
-    #            :requirement=>"required"
-    #          },
-    #          { :attr=>"filename",
-    #            :headings=>["FILENAME"],
-    #            :requirement=>"required"
-    #          },
-    #          { :attr=>"visible_page",
-    #            :headings=>["VISIBLE PAGE"],
-    #            :requirement=>"required"
-    #          },
-    #          { :attr=>"toc_entry",
-    #            :headings=>["TOC ENTRY"],
-    #            :multivalued=>true,
-    #            :value_sep=>"|"
-    #          },
-    #          { :attr=>"ill_entry",
-    #            :headings=>["ILL ENTRY"],
-    #            :multivalued=>true,
-    #            :value_sep=>"|"
-    #          },
-    #          { :attr=>"notes",
-    #            :headings=>["NOTES"]
-    #          }
-    #         ]
-    #      }
+    #     {:sheet_name=>"Structural",
+    #      :sheet_position=>0,
+    #      :heading_type=>"row",
+    #      :attributes=>
+    #        [{
+    #           :attr=>"ark_id",
+    #           :headings=>["ARK ID"],
+    #           :requirement=>"required",
+    #           :data_type=>:ark
+    #         },
+    #         {
+    #           :attr=>"page_sequence",
+    #           :headings=>["PAGE SEQUENCE"],
+    #           :requirement=>"required",
+    #           :unique=>true,
+    #           :data_type=>:integer
+    #         },
+    #         {
+    #           :attr=>"filename",
+    #           :headings=>["FILENAME"],
+    #           :requirement=>"required"
+    #         },
+    #         {
+    #           :attr=>"visible_page",
+    #           :headings=>["VISIBLE PAGE"],
+    #           :requirement=>"required"
+    #         },
+    #         {
+    #           :attr=>"toc_entry",
+    #           :headings=>["TOC ENTRY"],
+    #           :multivalued=>true,
+    #           :value_sep=>"|"
+    #         },
+    #         {
+    #           :attr=>"ill_entry",
+    #           :headings=>["ILL ENTRY"],
+    #           :multivalued=>true,
+    #           :value_sep=>"|"
+    #         },
+    #         {
+    #           :attr=>"notes",
+    #           :headings=>["NOTES"]
+    #         }
+    #       ]
+    #     }
     #
     # @param [String] xlsx_path path to the XLSX file
     # @param [Hash] config spreadsheet configuration
