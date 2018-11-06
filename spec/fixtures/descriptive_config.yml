@@ -1,0 +1,156 @@
+---
+:sheet_name: 'Descriptive'
+:sheet_position: 0
+:heading_type: 'row'
+:attributes:
+- :attr: object_type
+  :xml_element: type
+  :headings:
+  - OBJECT TYPE
+  :requirement: required
+- :attr: unique_identifier
+  :xml_element: ark
+  :data_type: :ark
+  :headings:
+  - UNIQUE IDENTIFIER
+  :requirement: required
+- :attr: abstract
+  :xml_element: abstract
+  :headings:
+  - ABSTRACT
+- :attr: call_number
+  :xml_element: callNumber
+  :headings:
+  - CALL NUMBER
+- :attr: citation_note
+  :xml_element: citationNote
+  :headings:
+  - CITATION NOTE
+- :attr: collection_name
+  :xml_element: collectionName
+  :headings:
+  - COLLECTION NAME
+- :attr: contributing_institution
+  :xml_element: contributingInstitution
+  :headings:
+  - CONTRIBUTING INSTITUTION
+- :attr: contributor
+  :xml_element: contributor
+  :headings:
+  - CONTRIBUTOR
+  :multivalued: true
+  :value_sep: '|'
+- :attr: corporate_name
+  :xml_element: corporateName
+  :headings:
+  - CORPORATE NAME
+  :multivalued: true
+  :value_sep: '|'
+- :attr: coverage
+  :xml_element: coverage
+  :headings:
+  - COVERAGE
+- :attr: creator
+  :xml_element: creator
+  :headings:
+  - CREATOR
+  :multivalued: true
+  :value_sep: '|'
+- :attr: date
+  :xml_element: date
+  :headings:
+  - DATE
+- :attr: description
+  :xml_element: description
+  :headings:
+  - DESCRIPTION
+  :multivalued: true
+  :value_sep: '|'
+- :attr: extent
+  :xml_element: extent
+  :headings:
+  - EXTENT
+- :attr: format
+  :xml_element: format
+  :headings:
+  - FORMAT
+- :attr: geographic_subject
+  :xml_element: geographicSubject
+  :headings:
+  - GEOGRAPHIC SUBJECT
+  :multivalued: true
+  :value_sep: '|'
+- :attr: identifier
+  :xml_element: identifier
+  :headings:
+  - IDENTIFIER
+  :multivalued: true
+  :value_sep: '|'
+- :attr: includes
+  :xml_element: includes
+  :headings:
+  - INCLUDES
+- :attr: language
+  :xml_element: language
+  :headings:
+  - LANGUAGE
+  :multivalued: true
+  :value_sep: '|'
+- :attr: medium
+  :xml_element: medium
+  :headings:
+  - MEDIUM
+- :attr: notes
+  :headings:
+  - NOTES
+  :multivalued: true
+  :value_sep: '|'
+- :attr: personal_name
+  :xml_element: personalName
+  :headings:
+  - PERSONAL NAME
+  :multivalued: true
+  :value_sep: '|'
+- :attr: provenance
+  :xml_element: provenance
+  :headings:
+  - PROVENANCE
+- :attr: publisher
+  :xml_element: publisher
+  :headings:
+  - PUBLISHER
+- :attr: relation
+  :xml_element: relation
+  :headings:
+  - RELATION
+- :attr: rights
+  :xml_element: rights
+  :headings:
+  - RIGHTS
+  :data_type: :web_url
+- :attr: source
+  :xml_element: source
+  :headings:
+  - SOURCE
+- :attr: subject
+  :xml_element: subject
+  :headings:
+  - SUBJECT
+  :multivalued: true
+  :value_sep: '|'
+- :attr: title
+  :xml_element: title
+  :headings:
+  - TITLE
+  :requirement: required
+- :attr: directory_name
+  :headings:
+  - DIRECTORY NAME
+- :attr: filenames
+  :headings:
+  - FILENAME(S)
+  :multivalued: true
+  :value_sep: ';'
+- :attr: status
+  :headings:
+  - STATUS
