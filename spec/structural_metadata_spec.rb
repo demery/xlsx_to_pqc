@@ -86,4 +86,70 @@ RSpec.describe StructuralMetadata do
     end
   end
 
+  context '#xml' do
+    before :each do
+      FileUtils.remove_dir staging_dir if File.exists? staging_dir
+      FileUtils.mkdir_p package_dir    unless File.exists? package_dir
+      FileUtils.cp good_structural_xlsx, structural_xlsx
+      FileUtils.touch tiff_files.map { |t| File.join package_dir, t }
+    end
+
+    let(:parsed_xml) { Nokogiri::XML structural_metadata.xml }
+
+    it 'should should return a string' do
+      expect(structural_metadata.xml).to be_a String
+    end
+
+    it 'should be valid xml' do
+      expect(parsed_xml).to be_a Nokogiri::XML::Document
+    end
+
+    it 'should have one page for each image' do
+      expect(parsed_xml).to have_xpath('//pages/page', count: 10)
+    end
+
+    it 'should have two toc entries' do
+      expect(parsed_xml).to have_xpath('//tocentry[@name="toc"]', count: 2)
+    end
+
+    it 'should have two ill entries' do
+      expect(parsed_xml).to have_xpath('//tocentry[@name="ill"]', count: 2)
+    end
+
+    #<page number="6" seq="6" image.defaultscale="3" side="verso" id="0006" image.id="0006" visiblepage="3v-4r" display="true">
+    it 'should have a page @number' do
+      expect(parsed_xml).to have_xpath('//page[@number=6]', count: 1)
+    end
+
+    it 'should have a page @seq' do
+      expect(parsed_xml).to have_xpath('//page[@seq=6]', count: 1)
+    end
+
+    it 'should have an @image.defaultscale' do
+      # there are 10 images in :tiff_files
+      expect(parsed_xml).to have_xpath('//page[@image.defaultscale=3]', count: 10)
+    end
+
+    it 'should have a page @side' do
+      expect(parsed_xml).to have_xpath('//page[@side="verso"]', count: 5)
+    end
+
+    it 'should have an image @id' do
+      expect(parsed_xml).to have_xpath('//page[@id="0001"]', count: 1)
+    end
+
+    it 'should have an @image.id' do
+      expect(parsed_xml).to have_xpath('//page[@image.id="0001"]', count: 1)
+    end
+
+    it 'should have a @visiblepage' do
+      expect(parsed_xml).to have_xpath('//page[@visiblepage="3v-4r"]', count: 1)
+    end
+
+    it 'should have @display = true the images in the spreadsheet' do
+      # 7 of the 10 images are in the spreadsheet
+      expect(parsed_xml).to have_xpath('//page[@display="true"]', count: 7)
+    end
+  end
+
 end

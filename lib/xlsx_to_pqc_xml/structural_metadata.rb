@@ -9,7 +9,6 @@ module XlsxToPqcXml
     # x - Confirm all required headers present
     # TODO: Return PQC XML
 
-
     # --- Default values --- (in case we want to make editable later)
     DEFAULT_PQC_STRUCTURAL_XLSX_BASE = 'pqc_structural.xlsx'.freeze
     DEFAULT_DATA_FILE_GLOB           = '*.{tif,tiff}'.freeze
@@ -34,12 +33,6 @@ module XlsxToPqcXml
       @data_file_list       = []
       @image_data           = []
       @spreadsheet_files    = []
-    end
-
-    ##
-    # @return [String] full path to the structural metadata spreadsheet
-    def xlsx_path
-      File.join package_directory, @structural_xlsx_base
     end
 
     ##
@@ -68,30 +61,34 @@ module XlsxToPqcXml
 
       validate_spreadsheet_file_list
 
-      spreadsheet_data.map do |row_hash|
+      # Create structs for all the spreadsheet files
+      spreadsheet_data.each do |row_hash|
         sequence = Integer row_hash[:page_sequence].to_s.strip
         filename = row_hash[:filename]
         image    = File.basename filename, File.extname(filename)
-        toc      = row_hash[:toc_entry]
-        ill      = row_hash[:ill_entry]
+        toc      = row_hash[:toc_entry] || []
+        ill      = row_hash[:ill_entry] || []
+        # NB: #display is a method of Object; hence :display? below
         data     = {
           number:             sequence,
           seq:                sequence,
           image_defaultscale: 3,
-          display:            true,
+          display?:           true,
           side:               (sequence.odd? ? RECTO : VERSO),
           image_id:           image,
           image:              image,
-          visiblepage:        row_hash['VISIBLE PAGE'],
+          visiblepage:        row_hash[:visible_page],
           toc:                toc,
           ill:                ill
         }
         @image_data << OpenStruct.new(data)
       end
 
+      # Create structs for all the files not in the spreadsheet
       files_on_disk.reject {|f| spreadsheet_files.include? f }.each do |extra|
         sequence = @image_data.last.seq + 1
         image    = File.basename extra, File.extname(extra)
+        # NB: #display is a method of Object; hence :display? below
         data = {
           number:             sequence,
           seq:                sequence,
@@ -101,7 +98,7 @@ module XlsxToPqcXml
           image_id:           image,
           image:              image,
           visiblepage:        nil,
-          display:            false,
+          display?:           false,
           toc:                [],
           ill:                []
         }
@@ -119,10 +116,36 @@ module XlsxToPqcXml
       return @xlsx_data.data unless @xlsx_data.nil?
 
       @xlsx_data = XlsxData.new xlsx_path: xlsx_path, config: @sheet_config
-
       @xlsx_data.data
     end
 
+    def xml
+      builder = Nokogiri::XML::Builder.new do |xml|
+        xml.record {
+          xml.ark image_data.first.ark_id
+          xml.pages {
+            image_data.each do |page|
+              data = {
+                number:               page.number,
+                seq:                  page.number,
+                'image.defaultscale': page.image_defaultscale,
+                side:                 page.side,
+                id:                   page.image,
+                'image.id':           page.image_id,
+                visiblepage:          page.visiblepage,
+                display:              page.display?
+              }
+
+              xml.page(data) {
+                page.toc.each { |toc| xml.tocentry toc, name: 'toc' }
+                page.ill.each { |ill| xml.tocentry ill, name: 'ill' }
+              }
+            end
+          }
+        }
+      end
+      builder.to_xml
+    end
 
     ##
     # @return [Array<String>] list of data file basenames in {package_directory}
@@ -152,13 +175,13 @@ module XlsxToPqcXml
     # Make sure we have all the files listed in the spreadsheet
     # @raise [StandardError] if the spreadsheet lists files not found on disk
     def validate_spreadsheet_file_list
-    missing = spreadsheet_files.reject {|file| files_on_disk.include? file}
+      missing = spreadsheet_files.reject {|file| files_on_disk.include? file}
 
-    unless missing.empty?
-      list = missing.map {|f| "'#{f}'"}.join ', '
-      raise StandardError, "Spreadsheet files not found in folder: #{list}"
+      unless missing.empty?
+        list = missing.map {|f| "'#{f}'"}.join ', '
+        raise StandardError, "Spreadsheet files not found in folder: #{list}"
+      end
     end
-  end
 
   end
 end

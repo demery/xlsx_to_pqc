@@ -1,3 +1,6 @@
+require 'rspec/expectations'
+require 'nokogiri'
+
 RSpec.configure do |rspec|
   # This config option will be enabled by default on RSpec 4,
   # but for reasons of backwards compatibility, you have to
@@ -7,6 +10,38 @@ RSpec.configure do |rspec|
   # from the shared context.
   rspec.shared_context_metadata_behavior = :apply_to_host_groups
 end
+
+
+RSpec::Matchers.define :have_xpath do |xpath, opts={}|
+  real_count = 0
+  match do |actual|
+    doc = actual.is_a?(Nokogiri::XML::Document) ? actual : Nokogiri::XML(actual)
+    if opts[:count]
+      real_count = doc.xpath(xpath).size
+      real_count == opts[:count]
+    else
+      !doc.xpath(xpath).empty?
+    end
+  end
+
+  failure_message do |actual|
+    if opts[:count]
+      "expected that #{actual} would match xpath '#{xpath}' #{opts[:count]} times; not #{real_count}"
+    else
+      "expected that #{actual} would have xpath '#{xpath}'"
+    end
+  end
+
+  failure_message_when_negated do |actual|
+    if opts[:count]
+      "expected that #{actual} would not match xpath '#{xpath}' #{opts[:count]} times"
+    else
+      "expected that #{actual} would not have xpath '#{xpath}'"
+    end
+  end
+end
+
+
 
 RSpec.shared_context 'shared context', :shared_context => :metadata do
   FIXTURES_DIR = File.expand_path '../../fixtures', __FILE__
