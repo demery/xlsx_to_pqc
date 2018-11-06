@@ -2,7 +2,8 @@ PATH
   remote: .
   specs:
     fixtures (0.1.0)
-      rubyXL
+      nokogiri (~> 1.8.5)
+      rubyXL (~> 3.3.30)
 
 GEM
   remote: https://rubygems.org/
