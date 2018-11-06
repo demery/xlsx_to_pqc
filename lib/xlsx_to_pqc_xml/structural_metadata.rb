@@ -1,13 +1,8 @@
-require_relative 'xlsx_data'
 require 'ostruct'
+require 'nokogiri'
 
 module XlsxToPqcXml
   class StructuralMetadata
-
-    ##
-    # x - Confirm all TIFF files in XLSX in directory
-    # x - Confirm all required headers present
-    # TODO: Return PQC XML
 
     # --- Default values --- (in case we want to make editable later)
     DEFAULT_PQC_STRUCTURAL_XLSX_BASE = 'pqc_structural.xlsx'.freeze
@@ -18,7 +13,6 @@ module XlsxToPqcXml
     VERSO                            = 'verso'.freeze
 
     attr_reader :package_directory
-    # attr_reader :expected_headers
     attr_accessor :data_file_glob
 
     ##
@@ -29,7 +23,6 @@ module XlsxToPqcXml
       @structural_xlsx_base = DEFAULT_PQC_STRUCTURAL_XLSX_BASE
       @data_file_glob       = DEFAULT_DATA_FILE_GLOB
       @sheet_config         = sheet_config
-      @spreadsheet_data     = []
       @data_file_list       = []
       @image_data           = []
       @spreadsheet_files    = []
