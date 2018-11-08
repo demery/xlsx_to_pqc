@@ -84,124 +84,132 @@ RSpec.describe StructuralMetadata do
       expect(parsed_xml).to be_a Nokogiri::XML::Document
     end
 
-    it 'should have one pqc_elements tag' do
-      expect(parsed_xml).to have_xpath('//pqc_elements', count: 1)
+    it 'should have one records tag' do
+      expect(parsed_xml).to have_xpath('//records', count: 1)
+    end
+
+    it 'should have two record tags' do
+      expect(parsed_xml).to have_xpath('//record', count: 2)
+    end
+
+    it 'should have two pqc_elements tags' do
+      expect(parsed_xml).to have_xpath('//pqc_elements', count: 2)
     end
 
     it 'should have pqc_element tags' do
-      expect(parsed_xml).to have_xpath('//pqc_elements/pqc_element', count: 27)
+      expect(parsed_xml).to have_xpath '//pqc_elements/pqc_element'
     end
 
     it 'should have a type' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="type"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="type"]/value'
     end
 
     it 'should have an abstract' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="abstract"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="abstract"]/value'
     end
 
     it 'should have a callNumber' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="callNumber"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="callNumber"]/value'
     end
 
     it 'should have a citationNote' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="citationNote"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="citationNote"]/value'
     end
 
     it 'should have a collectionName' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="collectionName"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="collectionName"]/value'
     end
 
     it 'should have a contributingInstitution' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="contributingInstitution"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="contributingInstitution"]/value'
     end
 
     it 'should have 2 contributors' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="contributor"]/value', count: 2)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="contributor"]/value'
     end
 
     it 'should have 2 corporateNames' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="corporateName"]/value', count: 2)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="corporateName"]/value'
     end
 
     it 'should have 2 corporateNames' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="corporateName"]/value', count: 2)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="corporateName"]/value'
     end
 
     it 'should have a coverage' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="coverage"]/value', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="coverage"]/value'
     end
 
     it 'should have 3 creators' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="creator"]/value', count: 3)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="creator"]/value'
     end
 
     it 'should have a date' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="date"]')
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="date"]'
     end
 
     it 'should have a description' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="description"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="description"]'
     end
 
     it 'should have a extent' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="extent"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="extent"]'
     end
 
     it 'should have a format' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="format"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="format"]'
     end
 
     it 'should have a geographicSubject' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="geographicSubject"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="geographicSubject"]'
     end
 
     it 'should have a identifier' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="identifier"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="identifier"]'
     end
 
     it 'should have a includes' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="includes"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="includes"]'
     end
 
     it 'should have a language' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="language"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="language"]'
     end
 
     it 'should have a medium' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="medium"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="medium"]'
     end
 
     it 'should have a personalName' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="personalName"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="personalName"]'
     end
 
     it 'should have a provenance' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="provenance"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="provenance"]'
     end
 
     it 'should have a publisher' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="publisher"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="publisher"]'
     end
 
     it 'should have a relation' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="relation"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="relation"]'
     end
 
     it 'should have a rights' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="rights"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="rights"]'
     end
 
     it 'should have a source' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="source"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="source"]'
     end
 
     it 'should have a subject' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="subject"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="subject"]'
     end
 
     it 'should have a title' do
-      expect(parsed_xml).to have_xpath('//pqc_element[@name="title"]', count: 1)
+      expect(parsed_xml).to have_xpath '//pqc_element[@name="title"]'
     end
   end
 

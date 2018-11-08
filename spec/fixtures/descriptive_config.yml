@@ -10,7 +10,7 @@
   :requirement: required
 - :attr: unique_identifier
   :xml_element: ark
-  :data_type: :ark
+  :data_type: ark
   :headings:
   - UNIQUE IDENTIFIER
   :requirement: required

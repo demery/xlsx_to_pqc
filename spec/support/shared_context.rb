@@ -44,7 +44,7 @@ end
 
 
 RSpec.shared_context 'shared context', :shared_context => :metadata do
-  FIXTURES_DIR = File.expand_path '../../fixtures', __FILE__
+  FIXTURES_DIR = File.expand_path '../../fixtures', __FILE__ unless defined? FIXTURES_DIR
 
   let(:fixtures_dir) { File.expand_path '../../fixtures', __FILE__ }
   let(:tmp_dir) { File.expand_path '../../../tmp', __FILE__ }

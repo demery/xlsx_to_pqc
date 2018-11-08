@@ -182,6 +182,10 @@ module XlsxToPqcXml
   #
   # === Spreadsheet configuration
   #
+  # To be valid, the configuration must define an attribute with the name
+  # {UNIQUE_IDENTIFIER_ATTRIBUTE} and that attribute definition must
+  # define and :xml_element value.
+  #
   # {XlsxToPqcXml::DescriptiveMetadata} uses a standard configuration as
   # described in the documentation for {XlsxToPqcXml::XlsxData} and adds
   # an +:xml_element+ key to the attribute configuration:
@@ -213,10 +217,14 @@ module XlsxToPqcXml
   #           <value>102 Main St., Springfield, USA</value>
   #         </pqc_element>
   #
+  #
+  #
   class DescriptiveMetadata
 
-    # --- Default --- (in case we want to spreadsheet name make editable later)
+    # --- Default --- (in case we want to make spreadsheet name editable later)
     DEFAULT_PQC_DESCRIPTIVE_XLSX_BASE = 'pqc_descriptive.xlsx'.freeze
+
+    # UNIQUE_IDENTIFIER_ATTRIBUTE = :unique_identifier
 
     ##
     # Create a new {DescriptiveMetadata} instance. The +package_directory+
@@ -300,6 +308,7 @@ module XlsxToPqcXml
         memo[attr[:attr].to_sym] = attr
         memo
       end
+
     end
 
     ##
@@ -311,16 +320,25 @@ module XlsxToPqcXml
     def data_for_xml
       return @data_for_xml unless @data_for_xml.empty?
 
+      validate_configuration
+
       spreadsheet_data.each do |record|
+        # binding.pry
         @data_for_xml << record.inject({}) do |memo,attr_value|
-          # get the XML element name for the attr
-          element = attribute_map.dig attr_value.first, :xml_element
-          next memo unless element
+          attr  = attr_value.first
           value = attr_value.last
+          # get the XML element name for the attr
+          element = attribute_map.dig attr, :xml_element
+          next memo unless element
           next memo unless value
-          ra = value.is_a?(Array) ?  value : [value]
-          memo[element] ||= []
-          memo[element] += ra
+
+          if attr.to_s == XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE
+            memo[element] = value
+          else
+            ra = value.is_a?(Array) ?  value : [value]
+            memo[element] ||= []
+            memo[element] += ra
+          end
           memo
         end
       end
@@ -328,16 +346,34 @@ module XlsxToPqcXml
       @data_for_xml
     end
 
+    def unique_id_xml_element
+      attribute_map.dig XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE, :xml_element
+    end
+
+    def validate_configuration
+      raise StandardError, 'Configuration must define :attributes' unless @sheet_config[:attributes]
+
+      unique_id_attr = @sheet_config[:attributes].find { |attribute| attribute[:attr].to_sym == XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE.to_sym }
+
+      unless unique_id_attr
+        raise StandardError, "Configuration must have define an attribute with :attr #{XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE}"
+      end
+
+      unless unique_id_attr[:xml_element]
+        raise StandardError, "Attribute with :attr #{XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE} must define :xml_element"
+      end
+    end
+
     def xml
       builder = Nokogiri::XML::Builder.new do |xml|
         xml.records {
           data_for_xml.each do |record|
             xml.record {
-              xml.ark record['ark'].first
+              xml.ark record[unique_id_xml_element]
               xml.pqc_elements {
-                record.each do |key,values|
-                  next if key == 'ark'
-                  xml.pqc_element(name: key) {
+                record.each do |xml_element,values|
+                  next if xml_element == unique_id_xml_element
+                  xml.pqc_element(name: xml_element) {
                     values.each do |val|
                       xml.value val
                     end

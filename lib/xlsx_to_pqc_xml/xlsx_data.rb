@@ -435,7 +435,6 @@ module XlsxToPqcXml
 
           row_hash = {}
           row.cells.each_with_index do |cell, col_pos|
-
             cell_data                 = CellParams.new
             cell_data.cell            = cell
             cell_data.row_pos         = row_pos
@@ -651,10 +650,6 @@ module XlsxToPqcXml
 
       # regular expression to match an ark
       ARK_REGEX = %r{\Aark:/\w+/\w+\Z}i
-      # regex from John Gruber https://gist.github.com/gruber/249502
-      URL_REGEX = %r{\A(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))\Z}
-      # regex from John Gruber: https://gist.github.com/gruber/8891611
-      WEB_URL_REGEX = %r{\A(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))\Z}
 
       # Hash of data type validators
       DEFAULT_TYPE_VALIDATORS = {
@@ -665,9 +660,9 @@ module XlsxToPqcXml
             false
           end
         },
-        ark:     lambda {|value| value =~ ARK_REGEX},
-        url:     lambda {|value| value =~ URL_REGEX},
-        web_url: lambda {|value| value =~ WEB_URL_REGEX},
+        ark:     lambda { |value| value =~ ARK_REGEX },
+        uri:     lambda { |value| value =~ URI.regexp },
+        web_url: lambda { |value| value =~ URI.regexp(%w{http https}) },
       }.freeze
 
       @@type_validators = DEFAULT_TYPE_VALIDATORS.inject({}) { |memo, type_lambda|
@@ -750,7 +745,6 @@ module XlsxToPqcXml
         memo
       }
       header_count.each do |head, addresses|
-        # binding.pry
         next unless addresses.size > 1
         add_error :non_unique_header, "#{head}", addresses
       end
@@ -778,7 +772,7 @@ module XlsxToPqcXml
     end
 
     ##
-    # If cell has an attribute configuration, check it for validity for any
+    # If cell has an attribute configuration, check it for validity:
     # defined requirement, uniqueness, or data type constraints.
     #
     # Invokes the following validation methods and returns false at the first
@@ -1029,11 +1023,11 @@ module XlsxToPqcXml
     #
     # For example,
     #
-    #   head = 'FILENAME'   # if attr config exists for 'FILENAME'
-    #   attribute_sym head  # => :filename
+    #   # attribute config with attr 'filename' exists for 'FILENAME'
+    #   attribute_sym 'FILENAME'              # => :filename
     #
-    #   head = 'unconfigured header'  # no attr config exists
-    #   attribute_sym head            # => :'unconfigured header'
+    #   # no attribute configured
+    #   attribute_sym 'unconfigured header'   # => :'unconfigured header'
     #
     # @param [String] head a head value
     # @return [Symbol]
