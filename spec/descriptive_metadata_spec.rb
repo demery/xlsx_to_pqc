@@ -61,9 +61,9 @@ RSpec.describe StructuralMetadata do
       FileUtils.cp valid_descriptive_xlsx, descriptive_xlsx
     end
 
-    it 'should return a hash' do
-      expect(descriptive_metadata.data_for_xml).to be_a Hash
-      # pp descriptive_metadata.data_for_xml
+    it 'should return an array of hashes' do
+      expect(descriptive_metadata.data_for_xml).to be_a Array
+      expect(descriptive_metadata.data_for_xml.first).to be_a Hash
     end
   end
 
@@ -78,7 +78,6 @@ RSpec.describe StructuralMetadata do
 
     it 'should should return a string' do
       expect(descriptive_metadata.xml).to be_a String
-      # puts parsed_xml
     end
 
     it 'should be valid xml' do

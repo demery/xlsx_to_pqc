@@ -2,6 +2,285 @@ require 'rubyXL'
 require 'set'
 
 module XlsxToPqcXml
+  ##
+  # Class to validate and extract data from a spreadsheet based on the
+  # rules and configuration provided in hash.
+  #
+  # == Sample usage
+  #
+  # Take the sample configuration YAML file and sample spreadsheet below.
+  #
+  # Spreadsheet configuration +structural_config.yml+:
+  #
+  #     ---
+  #     :sheet_name: 'Structural'
+  #     :sheet_position: 0
+  #     :heading_type: 'row'
+  #     :attributes:
+  #     - :attr: ark_id
+  #       :headings:
+  #       - ARK ID
+  #       :requirement: required
+  #       :data_type: :ark
+  #     - :attr: page_sequence
+  #       :headings:
+  #       - PAGE SEQUENCE
+  #       :requirement: required
+  #       :unique: true
+  #       :data_type: :integer
+  #     - :attr: filename
+  #       :headings:
+  #       - FILENAME
+  #       :requirement: required
+  #     - :attr: visible_page
+  #       :headings:
+  #       - VISIBLE PAGE
+  #       :requirement: required
+  #     - :attr: toc_entry
+  #       :headings:
+  #       - TOC ENTRY
+  #       :multivalued: true
+  #       :value_sep: '|'
+  #     - :attr: ill_entry
+  #       :headings:
+  #       - ILL ENTRY
+  #       :multivalued: true
+  #       :value_sep: '|'
+  #     - :attr: notes
+  #       :headings:
+  #       - NOTES
+  #
+  # Spreadsheet './ark\+=99999=fk42244n9f/pqc_structural.xlsx':
+  #
+  #     | ARK ID                | PAGE SEQUENCE | VISIBLE PAGE | TOC ENTRY                | ILL ENTRY                                               | FILENAME | NOTES |
+  #     |-----------------------|---------------|--------------|--------------------------|---------------------------------------------------------|----------|-------|
+  #     | ark:/99999/fk42244n9f | 1             | 1r           | Pio, Alberto (1512-1518) |                                                         | 0001.tif |       |
+  #     | ark:/99999/fk42244n9f | 2             | 1v           |                          |                                                         | 0002.tif |       |
+  #     | ark:/99999/fk42244n9f | 3             | 2r           |                          |                                                         | 0003.tif |       |
+  #     | ark:/99999/fk42244n9f | 4             | 2v           | Table, f. 2v [=3v]       |                                                         | 0004.tif |       |
+  #     | ark:/99999/fk42244n9f | 5             | 3r           |                          |                                                         | 0005.tif |       |
+  #     | ark:/99999/fk42244n9f | 6             | 3v-4r        |                          | Decorated initial, Initial P, p. 3|Foliate design, p. 3 | 0006.tif |       |
+  #     | ark:/99999/fk42244n9f | 7             | 4v           |                          |                                                         | 0007.tif |       |
+  #
+  #
+  # Validate and extract the data as an array of hashes:
+  #
+  #     require 'xlsx_to_pqc_xml'
+  #     require 'yaml'
+  #
+  #     config = YAML.load open('structural_config.yml').read
+  #     xlsx_data = XlsxToPqcXml::XlsxData.new xlsx_data: './ark+=99999=fk42244n9f/pqc_structural.xlsx', config: config
+  #     xlsx_data.data
+  #     # => [
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"1",
+  #     #      :visible_page=>"1r",
+  #     #      :toc_entry=>["Pio, Alberto (1512-1518)"],
+  #     #      :filename=>"0001.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"2",
+  #     #      :visible_page=>"1v",
+  #     #      :filename=>"0002.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"3",
+  #     #      :visible_page=>"2r",
+  #     #      :filename=>"0003.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"4",
+  #     #      :visible_page=>"2v",
+  #     #      :toc_entry=>["Table, f. 2v [=3v]"],
+  #     #      :filename=>"0004.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"5",
+  #     #      :visible_page=>"3r",
+  #     #      :filename=>"0005.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"6",
+  #     #      :visible_page=>"3v-4r",
+  #     #      :ill_entry=>["Decorated initial, Initial P, p. 3", "Foliate design, p. 3"],
+  #     #      :filename=>"0006.tif"},
+  #     #     {:ark_id=>"ark:/99999/fk42244n9f",
+  #     #      :page_sequence=>"7",
+  #     #      :visible_page=>"4v",
+  #     #      :filename=>"0007.tif"}
+  #     #     ]
+  #
+  #     xlsx_data.errors # => {} empty errors hash
+  #
+  # You can do validation alone by:
+  #
+  #     config = YAML.load open('structural_config.yml').read
+  #     xlsx_data = XlsxToPqcXml::XlsxData.new xlsx_data: './ark+=99999=fk42244n9f/pqc_structural.xlsx', config: config
+  #     xlsx_data.valid? # => true
+  #     xlsx_data.errors # => {}
+  #
+  # You can extract data from a spreadsheet without validation by:
+  #
+  #     config = YAML.load open('structural_config.yml').read
+  #     xlsx_data = XlsxToPqcXml::XlsxData.new xlsx_data: './ark+=99999=fk42244n9f/pqc_structural.xlsx', config: config
+  #     xlsx_data.data data_only: true # => [{:ark_id=>...}]
+  #
+  # === Validation
+  #
+  # Validation does not halt processing unless headers fail validation. All
+  # validation errors are added to an errors hash, keyed by the error type.
+  #
+  # For example:
+  #
+  #   {
+  #     :non_valid_ark=>
+  #       [#<OpenStruct address="A2", text="'arkx:/99999/fk42244n9f'">],
+  #     :required_value_missing=>
+  #       [#<OpenStruct address="C5", text="visible_page (VISIBLE PAGE)">,
+  #        #<OpenStruct address="C6", text="visible_page (VISIBLE PAGE)">],
+  #     :non_unique_value=>
+  #       [#<OpenStruct address="B6", text="'4'; heading: page_sequence (PAGE SEQUENCE)">],
+  #     :non_valid_integer=>
+  #       [#<OpenStruct address="B7", text="'6.3'">]
+  #    }
+  #
+  # Under each key is an array of OpenStruct objects with attributes +#address+
+  # and +#text+. The +#address+ attribute is not present for errors that cannot
+  # have an address, like +:required_header_missing+.
+  #
+  # Error types are:
+  #
+  #   :required_header_missing
+  #   :non_unique_header
+  #
+  #   :required_value_missing
+  #   :non_unique_value
+  #   :non_valid_integer
+  #   :non_valid_ark
+  #   :non_valid_url
+  #   :non_valid_web_url
+  #
+  # Spreadsheet headers are validated first and processing stops if the headers
+  # are not valid. There are two types of header requirements:
+  #
+  # 1. headers must be unique
+  # 2. headers for required fields must be present
+  #
+  # Cell values are validated according the rules described below under
+  # configuration. If headers pass va
+  #
+  # == Configuration
+  #
+  # Configuration is passed as hash, but YAML will be used hear for ease of
+  # reading.
+  #
+  #     ---
+  #     :sheet_name: 'Structural'
+  #     :sheet_position: 0
+  #     :heading_type: 'row'
+  #     :attributes:
+  #     - :attr: ark_id
+  #       :headings:
+  #       - ARK ID
+  #       :requirement: required
+  #       :data_type: :ark
+  #     - :attr: page_sequence
+  #       :headings:
+  #       - PAGE SEQUENCE
+  #       :requirement: required
+  #       :unique: true
+  #       :data_type: :integer
+  #     - :attr: filename
+  #       :headings:
+  #       - FILENAME
+  #       :requirement: required
+  #     - :attr: visible_page
+  #       :headings:
+  #       - VISIBLE PAGE
+  #       :requirement: required
+  #     - :attr: toc_entry
+  #       :headings:
+  #       - TOC ENTRY
+  #       :multivalued: true
+  #       :value_sep: '|'
+  #     - :attr: ill_entry
+  #       :headings:
+  #       - ILL ENTRY
+  #       :multivalued: true
+  #       :value_sep: '|'
+  #     - :attr: notes
+  #       :headings:
+  #       - NOTES
+  #
+  # ==== Top-level configuration values
+  #
+  # +:sheet_name+::     Any string to name the sheet. *Is not to find the
+  #                     sheet.*
+  #
+  # +:sheet_position+:: Integer index of the worksheet in the workbook; +0+
+  #                     by default
+  #
+  # +:heading_type+::   'row' (the default) if the headings are in the first row
+  #                     of the sheet; 'column' if the headings are the first
+  #                     column of the sheet
+  #
+  # +:attributes+::     a list of attributes to extract from the spreadsheet
+  #
+  # ==== Attribute configuration values
+  #
+  # +:attr+::           The key to store the record value under in the returned
+  #                     hash
+  #
+  # +:headings+::       Array of possibles names for the heading; should be
+  #                     unique
+  #
+  # +:requirement+::    Rules for whether the value is required; at present
+  #                     only +required+ is evaluated, but it's intended that
+  #                     more complex rules for conditional requirements could
+  #                     be added
+  #
+  # +:unique+::         whether value must be unique under its heading
+  #
+  # +:multivalued+::    whether to return the contents of the cell as an array
+  #
+  # +:value_sep+::      separator used to split multivalued cells; +|+ (the
+  #                     pipe character by default)
+  #
+  # Note: Columns/rows without headings are ignored. All other records are
+  # extracted. Headings not listed in the attributes will be extracted using
+  # their heading name; e.g., 'EXTRA HEADING' becomes +:'EXTRA HEADING'+.
+  #
+  # ==== Custom configuration values
+  #
+  # <b>XlsxData ignores custom configuration values</b>, but a calling class can
+  # take advantage of them for its own purposes. For example, if you want to
+  # map several attributes to XML elements, you might do something like the
+  # following:
+  #
+  #     ---
+  #     :sheet_name: 'Descriptive'
+  #     :sheet_position: 0
+  #     :heading_type: 'row'
+  #     :attributes:
+  #     - :attr: object_type
+  #       :xml_element: type
+  #       :headings:
+  #       - OBJECT TYPE
+  #       :requirement: required
+  #     - :attr: unique_identifier
+  #       :xml_element: ark
+  #       :data_type: :ark
+  #       :headings:
+  #       - UNIQUE IDENTIFIER
+  #       :requirement: required
+  #     - :attr: abstract
+  #       :xml_element: abstract
+  #       :headings:
+  #       - ABSTRACT
+  #     - :attr: call_number
+  #       :xml_element: callNumber
+  #       :headings:
+  #       - CALL NUMBER
+  #     # ... etc.
+  #
+  # Here, +:attr+ 'object_type' has +:xml_element+ name 'type'.
+  #
+  #
   class XlsxData
 
     attr_reader :xlsx_path
@@ -582,7 +861,7 @@ module XlsxToPqcXml
       return true if validator.call value
 
       error_sym = "non_valid_#{data_type}".to_sym
-      add_error error_sym, address, "'#{value}'"
+      add_error error_sym, "'#{value}'", address
       false
     end
 
@@ -591,7 +870,7 @@ module XlsxToPqcXml
     #
     # - All configuration data types must be defined
     # - All attributes must have an :attr
-    # - All attibutes must have an Array of valid :headings
+    # - All attributes must have an Array of valid :headings
     #
     # @return [Boolean] false if any checks fail
     def validate_config

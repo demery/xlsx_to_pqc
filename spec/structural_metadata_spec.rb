@@ -49,7 +49,6 @@ RSpec.describe StructuralMetadata do
     let(:spreadsheet_data) { structural_metadata.spreadsheet_data }
 
     it 'should return an array of hashes' do
-      # spreadsheet_data = structural_metadata.spreadsheet_data
       expect(spreadsheet_data).to be_an Array
       expect(spreadsheet_data.first).to be_a Hash
     end
@@ -116,7 +115,7 @@ RSpec.describe StructuralMetadata do
       expect(parsed_xml).to have_xpath('//tocentry[@name="ill"]', count: 2)
     end
 
-    #<page number="6" seq="6" image.defaultscale="3" side="verso" id="0006" image.id="0006" visiblepage="3v-4r" display="true">
+    # <page number="6" seq="6" image.defaultscale="3" side="verso" id="0006" image.id="0006" visiblepage="3v-4r" display="true">
     it 'should have a page @number' do
       expect(parsed_xml).to have_xpath('//page[@number=6]', count: 1)
     end
