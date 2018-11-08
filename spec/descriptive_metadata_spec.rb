@@ -6,16 +6,17 @@ RSpec.describe StructuralMetadata do
   include_context 'shared context'
 
 
-  let(:ark)                   { 'ark:/99999/fk42244n9f' }
-  let(:ark_dir)               { ark.gsub(%r{:}, '+').gsub(%r{/}, '=') }
+  let(:ark)                    { 'ark:/99999/fk42244n9f' }
+  let(:ark_dir)                { ark.gsub(%r{:}, '+').gsub(%r{/}, '=') }
 
-  let(:valid_descriptive_xlsx)  { fixture_path 'valid_pqc_descriptive.xlsx' }
-  let(:package_dir)           { File.join staging_dir, ark_dir }
+  let(:valid_descriptive_xlsx) { fixture_path 'valid_pqc_descriptive.xlsx' }
+  let(:package_dir)            { File.join staging_dir, ark_dir }
   let(:descriptive_config_yml) { fixture_path 'descriptive_config.yml' }
-  let(:sheet_config)          { YAML.load open(descriptive_config_yml).read }
+  let(:sheet_config)           { YAML.load open(descriptive_config_yml).read }
 
   let(:descriptive_xlsx)       { File.join package_dir, 'pqc_descriptive.xlsx' }
   let(:descriptive_metadata)   { DescriptiveMetadata.new package_directory: package_dir, sheet_config: sheet_config }
+  let(:expected_arks)          { %w{ ark:/99999/fk45t4vg3q ark:/99999/fk42244n9f } }
 
   after :each do
     FileUtils.remove_dir staging_dir if File.exists? staging_dir
@@ -94,6 +95,14 @@ RSpec.describe StructuralMetadata do
 
     it 'should have two pqc_elements tags' do
       expect(parsed_xml).to have_xpath('//pqc_elements', count: 2)
+    end
+
+    it 'should have two arks' do
+      expect(parsed_xml).to have_xpath('//ark', count: 2)
+    end
+
+    it 'should have expected arks' do
+      expect(parsed_xml.xpath('//ark').map(&:text)).to eq expected_arks
     end
 
     it 'should have pqc_element tags' do

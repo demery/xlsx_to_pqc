@@ -224,8 +224,6 @@ module XlsxToPqcXml
     # --- Default --- (in case we want to make spreadsheet name editable later)
     DEFAULT_PQC_DESCRIPTIVE_XLSX_BASE = 'pqc_descriptive.xlsx'.freeze
 
-    # UNIQUE_IDENTIFIER_ATTRIBUTE = :unique_identifier
-
     ##
     # Create a new {DescriptiveMetadata} instance. The +package_directory+
     # should contain a spreadsheet named +pqc_descriptive.xlsx+. +sheet_config+
@@ -299,7 +297,6 @@ module XlsxToPqcXml
     #     # etc.
     #   }
     #
-    #
     # @return [Hash]
     def attribute_map
       return @attribute_map unless @attribute_map.empty?
@@ -323,7 +320,6 @@ module XlsxToPqcXml
       validate_configuration
 
       spreadsheet_data.each do |record|
-        # binding.pry
         @data_for_xml << record.inject({}) do |memo,attr_value|
           attr  = attr_value.first
           value = attr_value.last
@@ -332,7 +328,7 @@ module XlsxToPqcXml
           next memo unless element
           next memo unless value
 
-          if attr.to_s == XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE
+          if attr.to_s == XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE.to_s
             memo[element] = value
           else
             ra = value.is_a?(Array) ?  value : [value]
