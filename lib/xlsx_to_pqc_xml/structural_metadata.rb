@@ -289,6 +289,8 @@ module XlsxToPqcXml
     def spreadsheet_data
       return @xlsx_data.data unless @xlsx_data.nil?
 
+      validate_configuration
+
       @xlsx_data = XlsxData.new xlsx_path: xlsx_path, config: @sheet_config
       @xlsx_data.data
     end
@@ -354,6 +356,18 @@ module XlsxToPqcXml
       unless missing.empty?
         list = missing.map {|f| "'#{f}'"}.join ', '
         raise StandardError, "Spreadsheet files not found in folder: #{list}"
+      end
+    end
+
+    def validate_configuration
+      raise StandardError, 'Configuration must define :attributes' unless @sheet_config[:attributes]
+
+      unique_id_attr = @sheet_config[:attributes].find { |attribute|
+        attribute[:attr].to_sym == XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE.to_sym
+      }
+
+      unless unique_id_attr
+        raise StandardError, "Configuration must have define an attribute with :attr #{XlsxToPqcXml::UNIQUE_IDENTIFIER_ATTRIBUTE}"
       end
     end
 

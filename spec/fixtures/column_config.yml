@@ -3,7 +3,7 @@
 :sheet_position: 0
 :heading_type: 'column'
 :attributes:
-- :attr: ark_id
+- :attr: unique_identifier
   :headings:
   - ARK ID
   :requirement: required
