@@ -29,7 +29,7 @@ RSpec.describe StructuralMetadata do
   let(:structural_xlsx)       { File.join package_dir, 'pqc_structural.xlsx' }
   let(:structural_metadata)   { StructuralMetadata.new package_directory: package_dir, sheet_config: sheet_config }
 
-  let(:multiple_structural)
+  # let(:multiple_structural)
 
   after :each do
     FileUtils.remove_dir staging_dir if File.exists? staging_dir
