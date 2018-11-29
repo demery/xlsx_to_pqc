@@ -10,29 +10,29 @@
   :data_type: :ark
 - :attr: page_sequence
   :headings:
-    - PAGE SEQUENCE
+    - Page Sequence
   :requirement: required
   :unique: true
   :data_type: :integer
 - :attr: filename
   :headings:
-    - FILENAME
+    - Filename
   :requirement: required
 - :attr: visible_page
   :headings:
-    - VISIBLE PAGE
+    - Visible Page
   :requirement: required
 - :attr: toc_entry
   :headings:
-    - TOC ENTRY
+    - TOC Entry
   :multivalued: true
   :value_sep: '|'
 - :attr: ill_entry
   :headings:
-    - ILL ENTRY
+    - ILL Entry
   :multivalued: true
   :value_sep: '|'
 - :attr: notes
   :headings:
-    - NOTES
+    - Notes
   :heading_required: true

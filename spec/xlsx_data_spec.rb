@@ -23,12 +23,14 @@ RSpec.describe XlsxData do
 
   # Configuration hashes
   let(:structural_config)              { YAML.load open(fixture_path 'structural_config.yml').read }
+  let(:lower_case_headings_config)     { YAML.load open(fixture_path 'structural_config_lower_case_headings.yml').read }
   let(:column_header_config)           { YAML.load open(fixture_path 'column_config.yml').read }
   let(:blurg_data_type_config)         { YAML.load open(fixture_path 'blurg_data_type_config.yml').read }
   let(:bad_config)                     { YAML.load open(fixture_path 'bad_config.yml').read }
 
   # XLSX fixtures
   let(:good_structural_xlsx)           { fixture_path 'good_pqc_structural.xlsx' }
+  let(:lower_case_xlsx)                { fixture_path 'pqc_structural_lower_case_headings.xlsx' }
   let(:column_headers_xlsx)            { fixture_path 'column_headers.xlsx' }
   let(:missing_required_xlsx)          { fixture_path 'missing_required_values.xlsx' }
   let(:fails_uniqueness_xlsx)          { fixture_path 'fails_uniqueness.xlsx' }
@@ -40,6 +42,7 @@ RSpec.describe XlsxData do
 
   # XlsxData instances
   let(:valid_data)                     { XlsxData.new xlsx_path: good_structural_xlsx, config: structural_config }
+  let(:lower_case_headings_data)       { XlsxData.new xlsx_path: lower_case_xlsx, config: lower_case_headings_config}
   let(:column_header_data)             { XlsxData.new xlsx_path: column_headers_xlsx, config: column_header_config }
   let(:missing_required)               { XlsxData.new xlsx_path: missing_required_xlsx, config: structural_config }
   let(:fails_uniqueness)               { XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: structural_config }
@@ -94,6 +97,12 @@ RSpec.describe XlsxData do
 
     it 'should return the same data whether headers are on columns or rows' do
       expect(column_header_data.data).to eq valid_data.data
+    end
+
+    it 'should return the same data regardless of header case' do
+      expect(lower_case_headings_data.data).to eq valid_data.data
+      puts valid_data.data
+      puts lower_case_headings_data.data
     end
 
     it 'should generate no errors if :data_only is true' do
@@ -161,6 +170,10 @@ RSpec.describe XlsxData do
     it 'should say a header is missing' do
       expect(fails_required_headers.validate_headers).not_to be_truthy
       expect(fails_required_headers.errors).to include :required_header_missing
+      messages = fails_required_headers.errors[:required_header_missing].map(&:text).to_s
+      expect(messages).to match /NOTES/
+      expect(messages).to match /PAGE SEQUENCE/
+      expect(messages).to match /FILENAME/
     end
 
     it 'should say a header is not unique' do
@@ -171,6 +184,11 @@ RSpec.describe XlsxData do
     it 'should say the headers are valid' do
       expect(valid_data.validate_headers).to be_truthy
       expect(valid_data.errors).to be_empty
+    end
+
+    it 'should accept mixed case headers' do
+      expect(lower_case_headings_data.validate_headers).to be_truthy
+      expect(lower_case_headings_data.errors).to be_empty
     end
   end
 

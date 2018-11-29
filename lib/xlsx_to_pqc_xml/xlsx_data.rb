@@ -346,6 +346,7 @@ module XlsxToPqcXml
       @header_addresses    = []
       @errors              = Hash.new { |hash, key| hash[key] = [] }
       @required_attributes = []
+      @required_headings   = []
       @attributes          = []
       @header_map          = {}
       @extracted           = false
@@ -483,6 +484,12 @@ module XlsxToPqcXml
       @required_attributes = attributes.select &:required?
     end
 
+    def required_headings
+      return @required_headings unless @required_headings.empty?
+
+      @required_headings = attributes.select &:heading_required
+    end
+
     ##
     # Return Hash of headers mapped to their {Attr} instances. For example,
     # given:
@@ -503,7 +510,10 @@ module XlsxToPqcXml
       return @header_map unless @header_map.empty?
 
       @header_map = attributes.inject({}) { |memo, attr|
-        attr.headings.each { |h| memo[h] = attr }
+        # map under all case possibilities
+        attr.headings.each          { |h| memo[h] = attr }
+        attr.upcase_headings.each   { |h| memo[h] = attr }
+        attr.downcase_headings.each { |h| memo[h] = attr }
         memo
       }
     end
@@ -636,6 +646,7 @@ module XlsxToPqcXml
       @header_addresses.clear
       @errors.clear
       @required_attributes.clear
+      @required_headings.clear
       @attributes.clear
       @header_map.clear
       @extracted = false
@@ -737,16 +748,16 @@ module XlsxToPqcXml
     #
     # @return [Boolean] true if all headers are unique
     def validate_headers_unique
-      compact_headers = headers.compact # remove nils
+      compact_headers = headers.compact.map &:upcase # remove nils
       return true if compact_headers.length == compact_headers.uniq.length
 
       header_count = headers_with_addresses.inject({}) { |memo,struct|
-        (memo[struct.header] ||= []) << struct.address unless struct.header.nil?
+        (memo[struct.header.upcase] ||= []) << struct unless struct.header.nil?
         memo
       }
-      header_count.each do |head, addresses|
-        next unless addresses.size > 1
-        add_error :non_unique_header, "#{head}", addresses
+      header_count.each do |head, structs|
+        next unless structs.size > 1
+        add_error :non_unique_header, "#{head}", structs.map(&:header)
       end
 
       false
@@ -758,9 +769,16 @@ module XlsxToPqcXml
     #
     # @return [Boolean] true if all required headers are present
     def validate_required_headers
+      upcase_headers = headers.map { |h| h && h.upcase }
       missing = required_attributes.reject { |a|
-        a.headings.any? { |header| headers.include? header }
+        a.upcase_headings.any? { |header| upcase_headers.include? header }
       }
+      # binding.pry
+
+      missing += required_headings.reject { |a|
+        a.upcase_headings.any? { |header| upcase_headers.include? header }
+      }
+      # binding.pry
       return true if missing.empty?
 
       missing.each do |head|
@@ -953,18 +971,19 @@ module XlsxToPqcXml
     #
     class Attr
       attr_accessor :attr, :headings, :requirement, :multivalued, :value_sep
-      attr_accessor :unique, :data_type
+      attr_accessor :unique, :data_type, :heading_required
 
       DEFAULT_VALUE_SEP = '|'
 
       def initialize deets:
-        @attr        = deets[:attr]
-        @headings    = deets[:headings]
-        @requirement = deets[:requirement]
-        @multivalued = deets[:multivalued]
-        @value_sep   = deets[:value_sep] || DEFAULT_VALUE_SEP
-        @unique      = deets[:unique] || false
-        @data_type   = deets[:data_type] and deets[:data_type].to_s.to_sym
+        @attr             = deets[:attr]
+        @headings         = deets[:headings] ||= []
+        @requirement      = deets[:requirement]
+        @multivalued      = deets[:multivalued]
+        @value_sep        = deets[:value_sep] || DEFAULT_VALUE_SEP
+        @unique           = deets[:unique] || false
+        @data_type        = deets[:data_type] and deets[:data_type].to_s.to_sym
+        @heading_required = deets[:heading_required] || false
       end
 
       ##
@@ -983,6 +1002,18 @@ module XlsxToPqcXml
 
       def unique?
         @unique
+      end
+
+      def heading_required?
+        @heading_required
+      end
+
+      def upcase_headings
+        headings.map &:upcase
+      end
+
+      def downcase_headings
+        headings.map &:downcase
       end
 
       ##
@@ -1013,7 +1044,7 @@ module XlsxToPqcXml
       return if cell.nil?
       return if cell.value.nil?
       return if cell.value.to_s.strip.empty?
-      cell.value.to_s.upcase.strip
+      cell.value.to_s.strip
     end
 
     ##

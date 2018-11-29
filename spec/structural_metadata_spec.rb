@@ -18,18 +18,18 @@ RSpec.describe StructuralMetadata do
         reference.tif }.freeze
   end
 
-  let(:ark)                   { 'ark:/99999/fk42244n9f' }
-  let(:ark_dir)               { ark.gsub(%r{:}, '+').gsub(%r{/}, '=') }
+  let(:ark)                       { 'ark:/99999/fk42244n9f' }
+  let(:ark_dir)                   { ark.gsub(%r{:}, '+').gsub(%r{/}, '=') }
 
-  let(:good_structural_xlsx)  { File.join fixtures_dir, 'good_pqc_structural.xlsx' }
-  let(:package_dir)           { File.join staging_dir, ark_dir }
-  let(:structural_config_yml) { File.join fixtures_dir, 'structural_config.yml' }
-  let(:sheet_config)          { YAML.load open(structural_config_yml).read }
+  let(:good_structural_xlsx)      { fixture_path 'good_pqc_structural.xlsx' }
+  let(:package_dir)               { File.join staging_dir, ark_dir }
+  let(:structural_config_yml)     { fixture_path 'structural_config.yml' }
+  let(:sheet_config)              { YAML.load open(structural_config_yml).read }
 
-  let(:structural_xlsx)       { File.join package_dir, 'pqc_structural.xlsx' }
-  let(:structural_metadata)   { StructuralMetadata.new package_directory: package_dir, sheet_config: sheet_config }
+  let(:structural_xlsx)           { File.join package_dir, 'pqc_structural.xlsx' }
+  let(:structural_metadata)       { StructuralMetadata.new package_directory: package_dir, sheet_config: sheet_config }
 
-  # let(:multiple_structural)
+  let(:multiple_structural_xlsx)  { fixture_path 'multiple_pqc_structural.xlsx'  }
 
   after :each do
     FileUtils.remove_dir staging_dir if File.exists? staging_dir
@@ -150,6 +150,23 @@ RSpec.describe StructuralMetadata do
     it 'should have @display = true the images in the spreadsheet' do
       # 7 of the 10 images are in the spreadsheet
       expect(parsed_xml).to have_xpath('//page[@display="true"]', count: 7)
+    end
+  end
+
+  context 'multiple unique identifiers' do
+    before :each do
+      FileUtils.remove_dir staging_dir if File.exists? staging_dir
+      FileUtils.mkdir_p package_dir    unless File.exists? package_dir
+      FileUtils.cp multiple_structural_xlsx, structural_xlsx
+      FileUtils.touch tiff_files.map { |t| File.join package_dir, t }
+    end
+
+    let(:spreadsheet_data) { structural_metadata.spreadsheet_data }
+
+    it 'should return an array of hashes' do
+      expect(spreadsheet_data).to be_an Array
+      expect(spreadsheet_data.first).to be_a Hash
+      # pp spreadsheet_data
     end
   end
 

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    fixtures (0.1.0)
+    xlsx_to_pqc_xml (0.1.0)
       nokogiri (~> 1.8.5)
       rubyXL (~> 3.3.30)
 
@@ -42,10 +42,10 @@ PLATFORMS
 
 DEPENDENCIES
   bundler (~> 1.16)
-  fixtures!
   pry (~> 0.11.3)
   rake (~> 10.0)
   rspec (~> 3.0)
+  xlsx_to_pqc_xml!
   yard (~> 0.9.16)
 
 BUNDLED WITH
