@@ -101,8 +101,6 @@ RSpec.describe XlsxData do
 
     it 'should return the same data regardless of header case' do
       expect(lower_case_headings_data.data).to eq valid_data.data
-      puts valid_data.data
-      puts lower_case_headings_data.data
     end
 
     it 'should generate no errors if :data_only is true' do

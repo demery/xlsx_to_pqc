@@ -24,9 +24,10 @@
   :requirement: required
 - :attr: toc_entry
   :headings:
-    - TOC Entry
+    - TOC ENTRY
   :multivalued: true
   :value_sep: '|'
+  :heading_required: true
 - :attr: ill_entry
   :headings:
     - ILL Entry

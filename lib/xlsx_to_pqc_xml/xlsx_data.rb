@@ -518,6 +518,11 @@ module XlsxToPqcXml
       }
     end
 
+    def find_attr head
+      return if head.nil?
+      valid_header_map[head.to_s.upcase]
+    end
+
     ###########################################################################
     # CELL HANDLING
     ###########################################################################
@@ -528,7 +533,7 @@ module XlsxToPqcXml
     # @param [CellParams] cell_data all values needed to process a cell
     # @param [Hash] uniques hash to track unique_values
     def process_cell cell_data, uniques
-      attr = valid_header_map[cell_data.head]
+      attr = find_attr cell_data.head
       attr_sym = attribute_sym cell_data.head
       return if attr_sym.nil?
 
@@ -552,7 +557,7 @@ module XlsxToPqcXml
     # @param [String] head heading value for the cell's column/row
     def value_from_cell cell, head
       return if head.nil?
-      attr = valid_header_map[head]
+      attr = find_attr head
 
       val = bare_cell_value cell
       return if val.nil?
@@ -977,7 +982,7 @@ module XlsxToPqcXml
 
       def initialize deets:
         @attr             = deets[:attr]
-        @headings         = deets[:headings] ||= []
+        @headings         = deets[:headings] || []
         @requirement      = deets[:requirement]
         @multivalued      = deets[:multivalued]
         @value_sep        = deets[:value_sep] || DEFAULT_VALUE_SEP
@@ -1064,8 +1069,8 @@ module XlsxToPqcXml
     # @return [Symbol]
     def attribute_sym head
       return if head.nil?
-      return head.to_sym unless valid_header_map[head]
-      valid_header_map[head].attr_sym
+      return head.to_sym unless find_attr head
+      find_attr(head).attr_sym
     end
   end
 
