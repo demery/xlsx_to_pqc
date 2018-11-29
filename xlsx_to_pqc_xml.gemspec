@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'xlsx_to_pqc_xml/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = 'fixtures'
+  spec.name          = 'xlsx_to_pqc_xml'
   spec.version       = XlsxToPqcXml::VERSION
   spec.authors       = ['Doug Emery']
   spec.email         = ['emeryr@upenn.edu']
