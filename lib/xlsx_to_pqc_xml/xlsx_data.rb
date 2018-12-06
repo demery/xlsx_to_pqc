@@ -416,7 +416,8 @@ module XlsxToPqcXml
 
             # each column represents a record, insert its value in the @data
             # array at the column position
-            row_hash = @data[col_pos - 1] ||= {}
+            @data[col_pos - 1] ||= {} unless validation_only
+            row_hash = @data[col_pos - 1] || {}
 
             cell_data                 = CellParams.new
             cell_data.cell            = cell

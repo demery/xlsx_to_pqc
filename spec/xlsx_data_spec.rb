@@ -221,6 +221,16 @@ RSpec.describe XlsxData do
       expect(fails_multiple.errors).to include :non_valid_integer
       expect(fails_multiple.errors).to include :required_value_missing
     end
+
+    it 'should return data after validation' do
+      expect(valid_data).to be_valid
+      expect(valid_data.data.first).not_to be_empty
+    end
+
+    it 'should return data after validation when the columns have headings' do
+      expect(column_header_data).to be_valid
+      expect(column_header_data.data.first).not_to be_empty
+    end
   end
 
 end
