@@ -33,6 +33,7 @@ RSpec.describe XlsxData do
   let(:lower_case_xlsx)                { fixture_path 'pqc_structural_lower_case_headings.xlsx' }
   let(:column_headers_xlsx)            { fixture_path 'column_headers.xlsx' }
   let(:missing_required_xlsx)          { fixture_path 'missing_required_values.xlsx' }
+  let(:column_missing_required_xlsx)   { fixture_path 'column_missing_required_values.xlsx' }
   let(:fails_uniqueness_xlsx)          { fixture_path 'fails_uniqueness.xlsx' }
   let(:fails_data_type_integer_xlsx)   { fixture_path 'fails_data_type_integer.xlsx' }
   let(:fails_data_type_ark_xlsx)       { fixture_path 'fails_data_type_ark.xlsx' }
@@ -45,6 +46,7 @@ RSpec.describe XlsxData do
   let(:lower_case_headings_data)       { XlsxData.new xlsx_path: lower_case_xlsx, config: lower_case_headings_config}
   let(:column_header_data)             { XlsxData.new xlsx_path: column_headers_xlsx, config: column_header_config }
   let(:missing_required)               { XlsxData.new xlsx_path: missing_required_xlsx, config: structural_config }
+  let(:column_missing_required)        { XlsxData.new xlsx_path: column_missing_required_xlsx, config: column_header_config }
   let(:fails_uniqueness)               { XlsxData.new xlsx_path: fails_uniqueness_xlsx, config: structural_config }
   let(:fails_data_type_integer)        { XlsxData.new xlsx_path: fails_data_type_integer_xlsx, config: structural_config }
   let(:fails_data_type_ark)            { XlsxData.new xlsx_path: fails_data_type_ark_xlsx, config: structural_config }
@@ -198,6 +200,11 @@ RSpec.describe XlsxData do
     it 'should be false when required values are missing' do
       expect(missing_required).not_to be_valid
       expect(missing_required.errors).to include :required_value_missing
+    end
+
+    it 'should be false when required values are missing with column configuration' do
+      expect(column_missing_required).not_to be_valid
+      expect(column_missing_required.errors).to include :required_value_missing
     end
 
     it 'should be false when uniqueness fails' do

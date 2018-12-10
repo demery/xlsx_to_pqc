@@ -409,11 +409,12 @@ module XlsxToPqcXml
       if @sheet_config.fetch(:heading_type, :row).to_sym == :column
         # headings are in the first column; for each header, work across the
         # row, collecting the value in each column.
+        sheet_width = worksheet.sheet_data.rows.map { |r| r ? r.cells.size : 0 }.max
         headers.each_with_index do |head, row_pos|
           next if head.nil?
-          worksheet.sheet_data.rows[row_pos].cells.each_with_index do |cell, col_pos|
-            next if col_pos == 0 # skip header column
-
+          
+          (1...sheet_width).each do |col_pos|
+            cell = worksheet.sheet_data.rows[row_pos][col_pos]
             # each column represents a record, insert its value in the @data
             # array at the column position
             @data[col_pos - 1] ||= {} unless validation_only
@@ -430,6 +431,25 @@ module XlsxToPqcXml
 
             process_cell cell_data, uniques
           end
+          # worksheet.sheet_data.rows[row_pos].cells.each_with_index do |cell, col_pos|
+          #   next if col_pos == 0 # skip header column
+
+          #   # each column represents a record, insert its value in the @data
+          #   # array at the column position
+          #   @data[col_pos - 1] ||= {} unless validation_only
+          #   row_hash = @data[col_pos - 1] || {}
+
+          #   cell_data                 = CellParams.new
+          #   cell_data.cell            = cell
+          #   cell_data.row_pos         = row_pos
+          #   cell_data.col_pos         = col_pos
+          #   cell_data.head            = head
+          #   cell_data.data_only       = data_only
+          #   cell_data.validation_only = validation_only
+          #   cell_data.row_hash        = row_hash
+
+          #   process_cell cell_data, uniques
+          # end
         end
       else
         worksheet.sheet_data.rows.each_with_index do |row, row_pos|
