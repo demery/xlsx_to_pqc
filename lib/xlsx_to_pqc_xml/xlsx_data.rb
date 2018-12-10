@@ -855,6 +855,7 @@ module XlsxToPqcXml
     def validate_requirement value, attr, address
       return true unless attr.required?
       return true unless value.nil?
+      return true unless value.to_s.strip.empty?
 
       add_error :required_value_missing, "#{attr}", address
       false

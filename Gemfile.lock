@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    xlsx_to_pqc_xml (0.1.0.2)
+    xlsx_to_pqc_xml (0.1.0.3)
       nokogiri (~> 1.8.5)
       rubyXL (~> 3.3.30)
 
